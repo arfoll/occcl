@@ -1,0 +1,29 @@
+OCCCL - OCCAM-Pi with openCL
+
+ABSTRACT
+
+AIM
+
+METHODOLOGY
+
+- All startup is done by initial.c. Two methods are provided.
+
+initialise returns a cl_context and cl_device_id which is used to compile the program from src and to create its cl_program_queue in which all compiled opencl programs will run.
+
+buildcl builds from src a program which can then be executed by the cl_program_queue
+
+- Questions:
+1. Do we need to make sure we only ever have on cl_program_queue?
+2. Should we create one queue per application or add all programs to the queue?
+3. Should we precompile all programs before running them and can we 'cache' them or do we need to recompile them every time we scrap context/queue?
+
+- OCCAM
+1. parameters and return values from C work ok
+2. Find a program that we can optimise with opencl calls - mandelbrot?
+2. 
+
+RESULTS
+
+CONCLUSION
+
+READING
