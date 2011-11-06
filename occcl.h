@@ -6,4 +6,4 @@
 
 #include <CL/cl.h>
 
-void initialise();
+#define ERROR_CHECK 0

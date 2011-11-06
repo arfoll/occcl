@@ -4,10 +4,7 @@
  * Copyright 2011 - Brendan Le Foll - bl73@kent.ac.uk
  */
 
-#include <stdio.h>
-#include <string.h>
-
-#include "initial.h"
+#include "rot13.h"
 
 const char rot13_cl[] = "       \
 __kernel void rot13         \
@@ -30,40 +27,36 @@ __kernel void rot13         \
 }             \
 ";
 
-int rot13_init = 0;
+static int rot13_init = 0;
+static cl_context* context;
+static cl_device_id* device;
+static cl_program prog;
+static cl_kernel k_rot13;
 
-char* rot13 (char* plaintext) {
-  size_t srcsize, worksize=strlen(plaintext);
+int rot13 (char* plaintext, char* ciphertext) {
+  size_t worksize=strlen(plaintext);
   
   cl_int error;
-  cl_device_id device;
-  cl_context context;
-  cl_program prog;
 
-  // CL initialisation
-  error = initialisecl(&context, &device);
-  errorMessageCL(error);
+#if ERROR_CHECK
+  if (prog == NULL) {
+    init_rot13();
+  }
+#endif
+
   // create command queue
-  cl_command_queue cq = clCreateCommandQueue(context, device, 0, &error);
-
-  const char *src=rot13_cl;
-  srcsize = strlen(rot13_cl);
-  const char *srcptr[]={src};
-  // build CL program
-  buildcl (srcptr, &srcsize, &context, &prog);
+  cl_command_queue cq = clCreateCommandQueue(*context, *device, 0, &error);
 
   // Allocate memory for the kernel to work with
   cl_mem mem1, mem2;
-  mem1=clCreateBuffer(context, CL_MEM_READ_ONLY, worksize, NULL, &error);
-  mem2=clCreateBuffer(context, CL_MEM_WRITE_ONLY, worksize, NULL, &error);
+  mem1=clCreateBuffer(*context, CL_MEM_READ_ONLY, worksize, NULL, &error);
+  mem2=clCreateBuffer(*context, CL_MEM_WRITE_ONLY, worksize, NULL, &error);
   
   // get a handle and map parameters for the kernel
-  cl_kernel k_rot13=clCreateKernel(prog, "rot13", &error);
   clSetKernelArg(k_rot13, 0, sizeof(mem1), &mem1);
   clSetKernelArg(k_rot13, 1, sizeof(mem2), &mem2);
 
   // Target buffer just so we show we got the data from OpenCL
-  char ciphertext[sizeof plaintext];
   ciphertext[0]='?';
   ciphertext[worksize]=0;
 
@@ -77,13 +70,33 @@ char* rot13 (char* plaintext) {
   error=clFinish(cq);
   
   // return the ciphertext 
-  return(ciphertext);
+  return error;
 }
 
 int init_rot13 ()
 {
+  cl_int error;
+
   if (rot13_init) {
     // if called again should we do nothing or restart init from scratch?
     return 1;
   }
+
+  //error = initialisecl();
+  context = get_cl_context();
+  device = get_cl_device();
+
+  const char *src=rot13_cl;
+  size_t srcsize=strlen(rot13_cl);
+  const char *srcptr[]={src};
+
+  // build CL program
+  error = buildcl (srcptr, &srcsize, &prog);
+  // create kernel
+  k_rot13 = clCreateKernel(prog, "rot13", &error);
+
+  // we are initialised
+  // TODO: use error val to calculate this
+  rot13_init = 1;
+  return error;
 }

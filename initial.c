@@ -9,55 +9,86 @@
 #include <stdio.h>
 #include <string.h>
 
+#define DEBUG 1
+
+static cl_context context;
+static cl_device_id device;
+
 /**
  * This initialisation is tested on AMDCCLE stream SDK (opencl 1.1)
  * on an AMD/ATI HD4850 graphics card on 32bit arch linux using linux 
  * kernel 3.0.3 with catalyst driver 
  */
-cl_int initialisecl(cl_context *context, cl_device_id *device) 
+cl_int initialisecl() 
 {
-  cl_int error;
-  cl_platform_id platform;
-  cl_uint platforms, devices;
+#if ERROR_CHECK
+  if (context == NULL) {
+#endif
+    cl_int error;
+    cl_platform_id platform;
+    cl_uint platforms, devices;
 
-  //Fetch the Platform and Device IDs; we only want one.
-  error = clGetPlatformIDs(1, &platform, &platforms);
-  if (error != CL_SUCCESS) {
-    fprintf(stderr, "Error getting platform ids: %s", errorMessageCL(error));
+    //Fetch the Platform and Device IDs; we only want one.
+    error = clGetPlatformIDs(1, &platform, &platforms);
+    if (error != CL_SUCCESS) {
+      fprintf(stderr, "Error getting platform ids: %s", errorMessageCL(error));
+    }
+
+    error=clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 1, &device, &devices);
+    if (error != CL_SUCCESS) {
+      fprintf(stderr, "Error getting device ids: %s", errorMessageCL(error));
+    }
+
+    cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
+    if (error != CL_SUCCESS) {
+      fprintf(stderr, "Error getting platform properties: %s", errorMessageCL(error));
+    }
+
+    //AMD stream SDK requires the platform property
+    context = clCreateContext(properties, 1, &device, NULL, NULL, &error);
+    if (error != CL_SUCCESS) {
+      fprintf(stderr, "Error creating context: %s", errorMessageCL(error));
+    }
+
+    return error;
+#if ERROR_CHECK
   }
 
-  error=clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 1, device, &devices);
-  if (error != CL_SUCCESS) {
-    fprintf(stderr, "Error getting device ids: %s", errorMessageCL(error));
-  }
-
-  cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
-  if (error != CL_SUCCESS) {
-    fprintf(stderr, "Error getting platform properties: %s", errorMessageCL(error));
-  }
-
-  //AMD stream SDK requires the platform property
-  *context = clCreateContext(properties, 1, device, NULL, NULL, &error);
-  if (error != CL_SUCCESS) {
-    fprintf(stderr, "Error creating context: %s", errorMessageCL(error));
-  }
-
-  return error;
+  return CL_SUCCESS;
+#endif
 }
 
 /**
  * builds the CL program from src and returns and return it
  */
-cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_context *context, cl_program *prog)
+cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog)
 {
   cl_int error;
   //Submit the source code of the rot13 kernel to OpenCL
-  *prog = clCreateProgramWithSource(*context, 1, srcptr, srcsize, &error);
+  *prog = clCreateProgramWithSource(context, 1, srcptr, srcsize, &error);
   //and compile it (after this we could extract the compiled version)
   error = clBuildProgram(*prog, 0, NULL, "", NULL, NULL);
-  //TODO: error handling
+
+// TODO: ERROR_CHECK not DEBUG
+#if DEBUG
+  if (error != CL_SUCCESS) {
+    char log[512];
+    error = clGetProgramBuildInfo(*prog, device, CL_PROGRAM_BUILD_LOG, 512, log, NULL);
+    fprintf(stderr, "** %s\n", log);
+  }
+#endif
 
   return error;
+}
+
+cl_context* get_cl_context()
+{
+  return &context;
+}
+
+cl_device_id* get_cl_device()
+{
+  return &device;
 }
 
 const char* errorMessageCL(cl_int error)

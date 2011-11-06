@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-g -Wall -lOpenCL -I.
 DEPS = 
-OBJ = hellocl.o initial.o rot13.o
+OBJ = hellocl.o initial.o rot13.o sin.o
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
@@ -9,4 +9,4 @@ OBJ = hellocl.o initial.o rot13.o
 hellocl: $(OBJ)
 	gcc -o $@ $^ $(CFLAGS)
 clean:
-	rm -f hellocl.o initial.o rot13.o hellocl
+	rm -f hellocl.o initial.o rot13.o sin.o hellocl
