@@ -10,8 +10,7 @@
 #include <stdio.h>
 
 #define SIN 1
-#define PRINT_SOME 1
-#define PRINT_ALL 0
+#define PRINT_SIN 0
 
 int main() {
   char plaintext[]="Hello, World!";
@@ -27,7 +26,7 @@ int main() {
 
 #if SIN
   // SIN wave
-
+  fprintf (stdout, "========= SIN =========\n");
   // Create and initialize the input data
   cl_float *data;
   data = (cl_float*)malloc(sizeof(cl_float)*10240);
@@ -36,14 +35,11 @@ int main() {
   }
   // init sin
   error = init_sin();
+  fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
   // run sin kernel
   error += clsin(data);
-  fprintf (stdout, "errors = %s\n", errorMessageCL(error));
-#if PRINT_ALL
-  // Print out the results
-  for (i=0; i<10240; i++)
-    printf("sin(%d) = %f\n", i, data[i]);
-#elif PRINT_SOME
+  fprintf (stdout, "clsin errors = %s\n", errorMessageCL(error));
+#if PRINT_SIN
   for (i=0; i<10240; i++) {
     printf("sin(%d) = %f\n", i, data[i]);
     i = i + 100;
@@ -53,15 +49,18 @@ int main() {
   free (data);
 #endif
 
+  // reinit cl_error
+  error = 0;
+  fprintf (stdout, "========= ROT13 =========\n");
   // rot13 initialisation
   error += init_rot13();
-  fprintf (stdout, "errors = %s\n", errorMessageCL(error));
+  fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
 
   // run rot13 CL kernel
   error += rot13(plaintext, ciphertext);
 
   // Finally, output out happy message.
-  fprintf (stdout, "ciphertext = %s, errors = %d\n", ciphertext, error);
+  fprintf (stdout, "rot13 errors = %d, ciphertext = %s\n", error, ciphertext);
 
   return error;
 }

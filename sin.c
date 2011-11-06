@@ -6,11 +6,12 @@
 
 #include "sin.h"
 
-const char sin_cl[] = "                        \
-        __kernel calcSin(global float *data) { \
-          int id = get_global_id(0);           \
-          data[id] = sin(data[id]);            \
-        }                                      \
+const char sin_cl[] = "                             \
+        __kernel void sin_cl  (global float *data)  \
+        {                                           \
+          int id = get_global_id(0);                \
+          data[id] = sin(data[id]);                 \
+        }                                           \
 ";
 
 static int sin_init = 0;
@@ -71,7 +72,7 @@ int init_sin ()
   // build CL program
   error = buildcl (srcptr, &srcsize, &prog);
   // create kernel
-  k_sin = clCreateKernel(prog, "rot13", &error);
+  k_sin = clCreateKernel(prog, "sin_cl", &error);
 
   // we are initialised
   // TODO: use error val to calculate this
