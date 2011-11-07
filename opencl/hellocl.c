@@ -7,11 +7,13 @@
 
 #include "sin.h"
 #include "rot13.h"
+#include "mandelbrot.h"
 #include <stdlib.h>
 #include <stdio.h>
 
 #define SIN 1
 #define PRINT_SIN 0
+#define PRINT_MANDEL 1
 
 int main() {
   char plaintext[]="Hello, World!";
@@ -62,6 +64,31 @@ int main() {
 
   // Finally, output out happy message.
   fprintf (stdout, "rot13 errors = %d, ciphertext = %s\n", error, ciphertext);
+
+  // reinit cl_error
+  error = 0;
+  fprintf (stdout, "========= MANDELBROT =========\n");
+
+  // mandelbrot initialisation
+  error += init_mandelbrot();
+  fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
+  // run mandelbrot CL kernel
+  cl_int width = 100;
+  cl_float *job = (cl_float*)malloc(sizeof(cl_float)*4);
+  for (i=0; i < 4; i++)
+    job[i] = 0.0;
+  cl_char *chdata = (cl_char*)malloc(sizeof(cl_char)*width);
+  for (i=0; i < width; i++)
+    chdata[i] = i;
+  error += mandelbrot(chdata, job, &width);
+  fprintf (stdout, "mandelbrot errors = %s\n", errorMessageCL(error));
+#if PRINT_MANDEL
+  for (i=0; i < width; i++) {
+    printf("mandel(%d) = %d\n", i, (int) chdata[i]);
+    i = i + 10;
+  }
+#endif
+
 
   return error;
 }
