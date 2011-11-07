@@ -1,0 +1,31 @@
+#INCLUDE "course.module"
+
+#PRAGMA EXTERNAL "PROC C.rot13 (VAL []BYTE plaintext, RESULT []BYTE ciphertext) = 0"
+#PRAGMA EXTERNAL "PROC C.initrot13 () = 0"
+#PRAGMA EXTERNAL "PROC C.mandelbrot (VAL []BYTE data) = 0"
+#PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
+
+PROC rot13 (CHAN BYTE out!)
+  INITIAL [17]BYTE plaintext IS "opencl is awesome":
+  [17]BYTE ciphertext:
+  SEQ
+    C.rot13 (plaintext, ciphertext)
+    out.string (ciphertext, 0, out!)
+    out.string ("*n", 0, out!)
+:
+
+PROC mandel (CHAN BYTE out!)
+  SKIP
+:
+
+PROC hello (CHAN BYTE out!)
+  SEQ
+    out.string ("opencl occam test*n", 0, out!)
+    C.initialisecl()
+    out.string ("opencl init over *n", 0, out!)
+    C.initrot13()
+    out.string ("rot13 init over*n", 0, out!)
+    --mandel (out!)
+    rot13 (out!)
+:
+

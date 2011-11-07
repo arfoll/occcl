@@ -15,6 +15,11 @@
 static cl_context context;
 static cl_device_id device;
 
+void _initialisecl(int *ws)
+{
+  initialisecl();
+}
+
 /**
  * This initialisation is tested on AMDCCLE stream SDK (opencl 1.1)
  * on an AMD/ATI HD4850 graphics card on 32bit arch linux using linux 

@@ -55,7 +55,7 @@ static cl_kernel k_mandelbrot;
 
 void _mandelbrot (int *w)
 { 
-//  mandelbrot ((w[0]));
+  mandelbrot ((cl_char*) (w[0]), (cl_float*) (w[1]), (cl_int*) (w[2]));
 }
 
 int mandelbrot (cl_char *data, cl_float *job, cl_int *width) {

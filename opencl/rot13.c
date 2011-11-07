@@ -36,7 +36,13 @@ static cl_kernel k_rot13;
 
 void _rot13 (int *w)
 { 
-  rot13 ((char *)(w[0]), (char *) (w[1]));
+  // w[1] and w[3] and strlen
+  rot13 ((char *) (w[0]), (char *) (w[2]));
+}
+
+void _initrot13 (int *w)
+{
+  init_rot13();
 }
 
 int rot13 (char* plaintext, char* ciphertext) {
