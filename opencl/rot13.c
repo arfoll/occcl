@@ -34,6 +34,11 @@ static cl_device_id* device;
 static cl_program prog;
 static cl_kernel k_rot13;
 
+void _rot13 (int *w)
+{ 
+  rot13 ((char *)(w[0]), (char *) (w[1]));
+}
+
 int rot13 (char* plaintext, char* ciphertext) {
   size_t worksize=strlen(plaintext);
   

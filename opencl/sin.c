@@ -35,15 +35,15 @@ int clsin (cl_float *data) {
   cl_command_queue cq = clCreateCommandQueue(*context, *device, 0, &error);
 
   // Setup the input
-  buffer = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*10240, data, NULL);
+  buffer = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*10240, data, &error);
 
   // Execute the kernel
-  clSetKernelArg(k_sin, 0, sizeof(buffer), &buffer);
+  error = clSetKernelArg(k_sin, 0, sizeof(buffer), &buffer);
   size_t global_dimensions[] = {10240,0,0};
-  clEnqueueNDRangeKernel(cq, k_sin, 1, NULL, global_dimensions, NULL, 0, NULL, NULL);
+  error = clEnqueueNDRangeKernel(cq, k_sin, 1, NULL, global_dimensions, NULL, 0, NULL, NULL);
 
   // Read back the results
-  clEnqueueReadBuffer(cq, buffer, CL_TRUE, 0, sizeof(cl_float)*10240, data, 0, NULL, NULL);
+  error = clEnqueueReadBuffer(cq, buffer, CL_TRUE, 0, sizeof(cl_float)*10240, data, 0, NULL, NULL);
 
   // Clean up
   clReleaseMemObject(buffer);

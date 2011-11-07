@@ -10,6 +10,7 @@
 
 #include "initial.h"
 
+void _rot13 (int *w);
 int rot13 (char* plaintext, char *ciphertext);
 int init_rot13 ();
 
