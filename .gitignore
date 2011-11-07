@@ -1,4 +1,6 @@
 hellocl
+hello
 *.swp
 *~
 *.o
+*.tce
