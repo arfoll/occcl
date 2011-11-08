@@ -2,9 +2,14 @@
 
 #PRAGMA EXTERNAL "PROC C.rot13 (VAL []BYTE plaintext, RESULT []BYTE ciphertext) = 0"
 #PRAGMA EXTERNAL "PROC C.initrot13 () = 0"
-#PRAGMA EXTERNAL "PROC C.mandelbrot (VAL []BYTE data, VAL []REAL32 job, VAL INT width) = 0"
+#PRAGMA EXTERNAL "PROC C.mandelbrot (VAL []BYTE data, VAL []REAL64 job, VAL INT width) = 0"
 #PRAGMA EXTERNAL "PROC C.initmandelbrot () = 0"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
+
+DATA TYPE COMPLEX64
+  RECORD
+    REAL64 real, imag:
+:
 
 PROC rot13 (VAL []BYTE plaintext, CHAN BYTE out!)
   [17]BYTE ciphertext: 
@@ -44,19 +49,76 @@ PROC print.streams (VAL INT col.width, []CHAN BYTE in?, CHAN BYTE out!)
 :
 
 PROC mandel (CHAN BYTE out!)
-  [100]BYTE data:
-  [4]REAL32 job:
+  [200]BYTE data:
+  [4]REAL64 job:
   VAL INT width IS 100:
   SEQ
     PAR
       PAR i = 0 FOR width
         data[i] := BYTE i
       PAR i = 0 FOR 4
-        job[i] := 0.0
+        job[i] := REAL64 TRUNC i 
     C.mandelbrot (data, job, width)
-    SEQ i = 0 FOR width
+    SEQ i = 0 FOR width*2
       out.byte (data[i], 0, out!)
     out.string ("*c*n", 0, out!)
+:
+
+COMPLEX64 INLINE FUNCTION "+" (VAL COMPLEX64 x, y) IS
+  [x[real] + y[real], x[imag] + y[imag]]:
+
+COMPLEX64 INLINE FUNCTION "**" (VAL COMPLEX64 x, y) IS
+  [(x[real]*y[real]) - (x[imag]*y[imag]),
+   (x[imag]*y[real]) + (x[real]*y[imag])]:
+
+REAL64 INLINE FUNCTION COMPLEX64ABSSQ (VAL COMPLEX64 x) IS
+  (x[real]*x[real]) + (x[imag]*x[imag]):
+
+INT FUNCTION calc (VAL COMPLEX64 a)
+  INT count:
+  VALOF
+    INITIAL COMPLEX64 iter IS [0.0, 0.0]:
+    SEQ
+      count := 0
+      WHILE ((COMPLEX64ABSSQ (iter) < 32.0) AND (count < 240))
+        SEQ
+          iter := (iter * iter) + a
+          count := count + 1
+    RESULT count
+:
+
+PROC mandelocc (CHAN BYTE out!)
+  VAL []BYTE table IS [' ','.',',','*'','~','*"','^',':',';','|','&','[','$','%','@','#']:
+  [100*2]BYTE data:
+  [4]REAL64 job:
+  VAL INT width IS 100:
+  SEQ
+    SEQ
+      SEQ i = 0 FOR width
+        data[i] := BYTE i
+      SEQ i = 0 FOR 4
+        job[i] := REAL64 TRUNC i
+    -- init over
+    VAL REAL64 y IS (job[0] / job[1]) - job[2]:
+    SEQ i = 0 FOR width 
+      VAL REAL64 x IS ((REAL64 TRUNC (i - (width / 2))) / (job[1] * 2.0)) - job[3]:
+      INT val:
+      SEQ
+        --out.string ("real: ", 0, out!)
+        --out.int ((INT TRUNC x), 0, out!)
+        --out.string (", imag: ", 0, out!)
+        --out.int ((INT TRUNC y), 0, out!)
+        --out.string ("*n", 0, out!)
+        val := calc ([x,y](COMPLEX64)) \ 16
+        out.string ("count: ", 0, out!)
+        out.int (val, 0, out!)
+        out.string ("*n", 0, out!)
+        data[i*2] := BYTE (val \ 6)
+        data[(i*2)+1] := table[val]
+    -- output results
+    SEQ i = 0 FOR width*2
+      out.byte (data[i], 0, out!)
+    out.string ("*n", 0, out!)
 :
 
 PROC hello (CHAN BYTE out!)
@@ -64,18 +126,20 @@ PROC hello (CHAN BYTE out!)
     out.string ("opencl occam test*n", 0, out!)
     C.initialisecl()
     out.string ("opencl init over *n", 0, out!)
-    C.initrot13()
-    out.string ("rot13 init over*n", 0, out!)
+--    C.initrot13()
+--    out.string ("rot13 init over*n", 0, out!)
 
-    rot13 ("opencl is awesome", out!)
-    out.string ("*c*n", 0, out!)
+--    rot13 ("opencl is awesome", out!)
+--    out.string ("*c*n", 0, out!)
 
-    occrot13 ("opencl is awesome", out!)
-    out.string ("*c*n", 0, out!)
+--    occrot13 ("opencl is awesome", out!)
+--    out.string ("*c*n", 0, out!)
 
-    out.string ("rot13 over. start mandelbrot*n", 0, out!)
-    C.initmandelbrot ()
-    out.string ("mandelbrot init over*n", 0, out!)
+    mandelocc(out!)
+
+--    out.string ("rot13 over. start mandelbrot*n", 0, out!)
+--    C.initmandelbrot ()
+--    out.string ("mandelbrot init over*n", 0, out!)
     mandel (out!)
 --    [4] CHAN BYTE chans:
 --    INITIAL BOOL running IS TRUE:

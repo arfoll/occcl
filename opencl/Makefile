@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g -Wall -lOpenCL -I.
+CFLAGS=-g -Wall -lOpenCL -lm -I.
 DEPS = 
 OBJ = hellocl.o initial.o rot13.o sin.o mandelbrot.o
 

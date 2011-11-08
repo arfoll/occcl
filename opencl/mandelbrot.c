@@ -38,6 +38,8 @@ __kernel void mandelbrot_calc                     \
 }";
 #endif
 
+char table[] = " .,*~*^:;|&[$%@#";
+
 const char mandelbrot_cl[] =
 "__kernel void mandelbrot (__global char *data, __global float *job, __global const int *width)\
 {\
@@ -47,6 +49,42 @@ const char mandelbrot_cl[] =
   } \
 }";
 
+double COMPLEX64ABSSQ (double complex c)
+{
+  double real = __real__ c;
+  double imag = __imag__ c;
+  return (real*real) + (imag*imag);
+}
+
+int calc (double complex c)
+{
+  double complex iter;
+  __real__ iter = 0.0;
+  __imag__ iter = 0.0;
+  int count = 0;
+  while ((((COMPLEX64ABSSQ(iter))) < 32.0) && (count < 240)) {
+    iter = (iter * iter) + c;
+    count++;
+  }
+  return count;
+}
+
+void mandelbrot_c (cl_char *data, cl_double *job, cl_int width)
+{
+  int i = 0;
+  double y = job[0]/job[1] - job[2];
+  for (i = 0; i < width; i++) {
+    double x = ((i - ((width)/2)) / (job[1] * 2.0)) - job[3];
+    double complex c;
+     __real__ c = x;
+     __imag__ c = y;
+    int val = calc (c) % 16;
+    //fprintf (stdout, "count: %d\n", val);
+    data[i*2] = (char) (val % 6);
+    data[(i*2)+1] = table[val];
+  }
+}
+
 static int mandelbrot_init = 0;
 static cl_context* context;
 static cl_device_id* device;
@@ -55,7 +93,7 @@ static cl_kernel k_mandelbrot;
 
 void _mandelbrot (int *w)
 { 
-  mandelbrot ((cl_char*) (w[0]), (cl_float*) (w[2]), (cl_int) (w[4]));
+  mandelbrot_c ((cl_char*) (w[0]), (cl_double*) (w[2]), (cl_int) (w[4]));
 }
 
 void _initmandelbrot (int *w)
