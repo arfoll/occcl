@@ -27,6 +27,8 @@ int main() {
   // CL initialisation
   error = initialisecl();
 
+  error = getDevInfo();
+
 #if SIN
   // SIN wave
   fprintf (stdout, "========= SIN =========\n");
@@ -74,13 +76,14 @@ int main() {
   fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
   // run mandelbrot CL kernel
   cl_int width = 100;
-  cl_float *job = (cl_float*)malloc(sizeof(cl_float)*4);
+  double *job = (double*)malloc(sizeof(double)*4);
   for (i=0; i < 4; i++)
     job[i] = 0.0;
-  cl_char *chdata = (cl_char*)malloc(sizeof(cl_char)*width);
-  for (i=0; i < width; i++)
+  cl_char *chdata = (cl_char*)malloc(sizeof(cl_char)*width*2);
+  for (i=0; i < width*2; i++)
     chdata[i] = i;
-  error += mandelbrot(chdata, job, width);
+  double y = 4.59; 
+  error += mandelbrot(chdata, job, width, &y);
   fprintf (stdout, "mandelbrot errors = %s\n", errorMessageCL(error));
 #if PRINT_MANDEL
   for (i=0; i < width; i++) {

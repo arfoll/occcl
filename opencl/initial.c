@@ -65,6 +65,18 @@ cl_int initialisecl()
 }
 
 /**
+ * Get some device info
+ */
+cl_int getDevInfo()
+{
+  char buffer[10240];
+  cl_int error;
+  int i;
+  error = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, sizeof(buffer), buffer, NULL);
+  fprintf(stdout, "%s\n", buffer);
+}
+
+/**
  * builds the CL program from src and returns and return it
  */
 cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog)
@@ -78,7 +90,7 @@ cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog)
 // TODO: ERROR_CHECK not DEBUG
 #if DEBUG
   if (error != CL_SUCCESS) {
-    char log[4096];
+    char log[32768];
     error = clGetProgramBuildInfo(*prog, device, CL_PROGRAM_BUILD_LOG, 4096, log, NULL);
     fprintf(stderr, "** %s\n", log);
     fprintf(stdout, "error : %s\n", errorMessageCL(error));
