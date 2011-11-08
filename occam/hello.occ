@@ -5,13 +5,41 @@
 #PRAGMA EXTERNAL "PROC C.mandelbrot (VAL []BYTE data) = 0"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
 
-PROC rot13 (CHAN BYTE out!)
-  INITIAL [17]BYTE plaintext IS "opencl is awesome":
-  [17]BYTE ciphertext:
+PROC rot13 (VAL []BYTE plaintext, CHAN BYTE out!)
+  [17]BYTE ciphertext: 
   SEQ
     C.rot13 (plaintext, ciphertext)
     out.string (ciphertext, 0, out!)
-    out.string ("*n", 0, out!)
+:
+
+PROC occrot13 (VAL []BYTE p, CHAN BYTE out!)
+  [17]BYTE c:
+  SEQ
+    PAR i = 0 FOR 17 
+      IF 
+        (p[i] >= 'a') AND (p[i] <= 'z')
+          SEQ
+            c[i] := p[i] - 'a'
+            c[i] := ((c[i] + 13) \ 26) + 'a'
+        (p[i] >= 'A') AND (p[i] <= 'Z')
+          SEQ
+            c[i] := p[i] - 'A'
+            c[i] := ((c[i] + 13) \ 26) + 'a'
+        TRUE
+          c[i] := ' '
+      
+    out.string (c, 0, out!)
+:
+
+PROC print.streams (VAL INT col.width, []CHAN BYTE in?, CHAN BYTE out!)
+  INITIAL MOBILE []BYTE n IS MOBILE [SIZE in?]BYTE:
+  WHILE TRUE
+    SEQ
+      PAR i = 0 FOR SIZE n
+        in[i] ? n[i]
+      SEQ i = 0 FOR SIZE n
+        out.ch (n[i], col.width, out!)
+      out.string ("*c*n", 0, out!)
 :
 
 PROC mandel (CHAN BYTE out!)
@@ -25,7 +53,20 @@ PROC hello (CHAN BYTE out!)
     out.string ("opencl init over *n", 0, out!)
     C.initrot13()
     out.string ("rot13 init over*n", 0, out!)
-    --mandel (out!)
-    rot13 (out!)
+
+    rot13 ("opencl is awesome", out!)
+    out.string ("*c*n", 0, out!)
+
+    occrot13 ("opencl is awesome", out!)
+    out.string ("*c*n", 0, out!)
+    [4] CHAN BYTE chans:
+    INITIAL BOOL running IS TRUE:
+    WHILE running
+      PAR
+        print.streams (10, chans?, out!)
+        rot13 ("opencl is awesome", chans[0]!)
+        rot13 ("opencl is greaaat", chans[1]!)
+        rot13 ("opencl is monkeyy", chans[2]!)
+        rot13 ("opencl is doucheb", chans[3]!)
 :
 
