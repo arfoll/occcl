@@ -55,10 +55,15 @@ static cl_kernel k_mandelbrot;
 
 void _mandelbrot (int *w)
 { 
-  mandelbrot ((cl_char*) (w[0]), (cl_float*) (w[1]), (cl_int*) (w[2]));
+  mandelbrot ((cl_char*) (w[0]), (cl_float*) (w[2]), (cl_int) (w[4]));
 }
 
-int mandelbrot (cl_char *data, cl_float *job, cl_int *width) {
+void _initmandelbrot (int *w)
+{
+  init_mandelbrot();
+}
+
+int mandelbrot (cl_char *data, cl_float *job, cl_int width) {
   
   cl_int error;
 
@@ -73,9 +78,9 @@ int mandelbrot (cl_char *data, cl_float *job, cl_int *width) {
 
   // Allocate memory for the kernel to work with
   cl_mem mem1, mem2, mem3;
-  mem1 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_char)*(*width), data, &error);
+  mem1 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_char)*(width), data, &error);
   mem2 = clCreateBuffer(*context, CL_MEM_READ_ONLY, sizeof(cl_float)*4, job, &error);
-  mem3 = clCreateBuffer(*context, CL_MEM_READ_ONLY, sizeof(cl_int), width, &error);
+  mem3 = clCreateBuffer(*context, CL_MEM_READ_ONLY, sizeof(cl_int), &width, &error);
   
   // get a handle and map parameters for the kernel
   error = clSetKernelArg(k_mandelbrot, 0, sizeof(mem1), &mem1);
@@ -86,7 +91,7 @@ int mandelbrot (cl_char *data, cl_float *job, cl_int *width) {
   size_t global_dimensions[] = {100,0,0};
   error = clEnqueueNDRangeKernel(cq, k_mandelbrot, 1, NULL, global_dimensions, NULL, 0, NULL, NULL);
   // Read the result back into ciphertext 
-  error = clEnqueueReadBuffer(cq, mem1, CL_TRUE, 0, sizeof(cl_char)*(*width), data, 0, NULL, NULL);
+  error = clEnqueueReadBuffer(cq, mem1, CL_TRUE, 0, sizeof(cl_char)*(width), data, 0, NULL, NULL);
 
   // cleanup and wait for release of cq
   clReleaseMemObject(mem1);

@@ -2,7 +2,8 @@
 
 #PRAGMA EXTERNAL "PROC C.rot13 (VAL []BYTE plaintext, RESULT []BYTE ciphertext) = 0"
 #PRAGMA EXTERNAL "PROC C.initrot13 () = 0"
-#PRAGMA EXTERNAL "PROC C.mandelbrot (VAL []BYTE data) = 0"
+#PRAGMA EXTERNAL "PROC C.mandelbrot (VAL []BYTE data, VAL []REAL32 job, VAL INT width) = 0"
+#PRAGMA EXTERNAL "PROC C.initmandelbrot () = 0"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
 
 PROC rot13 (VAL []BYTE plaintext, CHAN BYTE out!)
@@ -43,7 +44,19 @@ PROC print.streams (VAL INT col.width, []CHAN BYTE in?, CHAN BYTE out!)
 :
 
 PROC mandel (CHAN BYTE out!)
-  SKIP
+  [100]BYTE data:
+  [4]REAL32 job:
+  VAL INT width IS 100:
+  SEQ
+    PAR
+      PAR i = 0 FOR width
+        data[i] := BYTE i
+      PAR i = 0 FOR 4
+        job[i] := 0.0
+    C.mandelbrot (data, job, width)
+    SEQ i = 0 FOR width
+      out.byte (data[i], 0, out!)
+    out.string ("*c*n", 0, out!)
 :
 
 PROC hello (CHAN BYTE out!)
@@ -59,14 +72,19 @@ PROC hello (CHAN BYTE out!)
 
     occrot13 ("opencl is awesome", out!)
     out.string ("*c*n", 0, out!)
-    [4] CHAN BYTE chans:
-    INITIAL BOOL running IS TRUE:
-    WHILE running
-      PAR
-        print.streams (10, chans?, out!)
-        rot13 ("opencl is awesome", chans[0]!)
-        rot13 ("opencl is greaaat", chans[1]!)
-        rot13 ("opencl is monkeyy", chans[2]!)
-        rot13 ("opencl is doucheb", chans[3]!)
+
+    out.string ("rot13 over. start mandelbrot*n", 0, out!)
+    C.initmandelbrot ()
+    out.string ("mandelbrot init over*n", 0, out!)
+    mandel (out!)
+--    [4] CHAN BYTE chans:
+--    INITIAL BOOL running IS TRUE:
+--    WHILE running
+--      PAR
+--        print.streams (10, chans?, out!)
+--        rot13 ("opencl is awesome", chans[0]!)
+--        rot13 ("opencl is greaaat", chans[1]!)
+--        rot13 ("opencl is monkeyy", chans[2]!)
+--        rot13 ("opencl is doucheb", chans[3]!)
 :
 

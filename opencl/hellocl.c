@@ -80,7 +80,7 @@ int main() {
   cl_char *chdata = (cl_char*)malloc(sizeof(cl_char)*width);
   for (i=0; i < width; i++)
     chdata[i] = i;
-  error += mandelbrot(chdata, job, &width);
+  error += mandelbrot(chdata, job, width);
   fprintf (stdout, "mandelbrot errors = %s\n", errorMessageCL(error));
 #if PRINT_MANDEL
   for (i=0; i < width; i++) {
