@@ -67,11 +67,10 @@ cl_int initialisecl()
 /**
  * Get some device info
  */
-cl_int getDevInfo()
+void getDevInfo()
 {
   char buffer[10240];
-  cl_int error;
-  error = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, sizeof(buffer), buffer, NULL);
+  clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, sizeof(buffer), buffer, NULL);
   fprintf(stdout, "%s\n", buffer);
 }
 
