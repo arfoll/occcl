@@ -7,52 +7,46 @@
 
 #include "mandelbrot.h"
 
-#if 0
-const char mandelbrot_cl[] = "                  \
-__kernel void mandelbrot                        \
-    (   __global    const   char    *output,    \
-        __global    const   double  *job,       \
-        __global    const   int     width       \
-    )                                           \
-{                                               \
-    const uint index = get_global_id(0);        \
-    if (index < width) {                        \
-      \
-}             \
-";
-#endif
+cl_char table[] = " .,\n~*^:;|&[$%@#";
 
-#if 0
-const char mandelbrot_cl[] = "                    \
-__kernel void mandelbrot_calc                     \
-   (__global    const   complex double  a,        \
-    __global    const   int       count)          \
-{                                                 \
-    const uint index = get_global_id(0);          \
-    complex double b = 0.0;                       \
-    while (((b.real*b.real+b.img*b.img) < 32.0)   \
-           && (count < 240)) {                    \
-      b = b*b + a;                                \
-      count++;                                    \
-    }                                             \
-}";
-#endif
-
-char table[] = " .,*~*^:;|&[$%@#";
-
+#if 1 
 const char mandelbrot_cl[] =
-"__kernel void mandelbrot (__global char *data, __global float *job, __global const int *width)\
-{\
-  const uint index = get_global_id(0); \
-  if (index < width) { \
-     data[index] = 5 + index; \
+"__kernel void mandelbrot (__global char *data, __global float *job, __global int *width, \
+                           __global float *y, __global char *table) \
+{ \
+  const uint idx = get_global_id(0); \
+  if (idx < width) { \
+    float i = *y; \
+    float r = ((idx - ((*width)/2)) / (job[1] * 2.0)) - job[3]; \
+    int val; \
+    int count = 0; \
+    while ((((r*r)+(i*i)) < 32.0) && (count < 240)) { \
+      r = (r*i) - (r*i); \
+      i = (r*i) + (r*i); \
+      count++; \
+    } \
+    count = count % 16; \
+    data[idx*2] = (char) (count % 6); \
+    data[(idx*2)+1] = table[count]; \
   } \
 }";
+#else
+const char mandelbrot_cl[] = " \
+__kernel void mandelbrot (__global char *data, __global float *job, __global int *width, \
+                          __global float *y, __global char *table)\
+{ \
+  const uint idx = get_global_id(0); \
+  if (idx < width) { \
+    float r = ((idx - ((*width)/2)) / (job[1] * 2.0)) - job[3]; \
+    data[idx] = table[idx%16]; \
+  } \
+}";
+#endif
 
-double COMPLEX64ABSSQ (double complex c)
+cl_fract COMPLEX64ABSSQ (double complex c)
 {
-  double real = __real__ c;
-  double imag = __imag__ c;
+  cl_fract real = __real__ c;
+  cl_fract imag = __imag__ c;
   return (real*real) + (imag*imag);
 }
 
@@ -69,12 +63,12 @@ int calc (double complex c)
   return count;
 }
 
-void mandelbrot_c (cl_char *data, cl_double *job, cl_int width)
+void mandelbrot_c (cl_char *data, cl_fract *job, cl_int width)
 {
   int i = 0;
-  double y = job[0]/job[1] - job[2];
+  cl_fract y = job[0]/job[1] - job[2];
   for (i = 0; i < width; i++) {
-    double x = ((i - ((width)/2)) / (job[1] * 2.0)) - job[3];
+    cl_fract x = ((i - ((width)/2)) / (job[1] * 2.0)) - job[3];
     double complex c;
      __real__ c = x;
      __imag__ c = y;
@@ -93,7 +87,10 @@ static cl_kernel k_mandelbrot;
 
 void _mandelbrot (int *w)
 { 
-  mandelbrot_c ((cl_char*) (w[0]), (cl_double*) (w[2]), (cl_int) (w[4]));
+  //mandelbrot_c ((cl_char*) (w[0]), (cl_fract*) (w[2]), (cl_int) (w[4]));
+  cl_fract *job = (cl_fract*) (w[2]);
+  cl_fract y = job[0]/job[1] - job[2];
+  mandelbrot ((cl_char*) (w[0]), job, (cl_int) (w[4]), &y);
 }
 
 void _initmandelbrot (int *w)
@@ -101,7 +98,7 @@ void _initmandelbrot (int *w)
   init_mandelbrot();
 }
 
-int mandelbrot (cl_char *data, cl_float *job, cl_int width) {
+int mandelbrot (cl_char *data, cl_fract *job, cl_int width, cl_fract *y) {
   
   cl_int error;
 
@@ -115,18 +112,22 @@ int mandelbrot (cl_char *data, cl_float *job, cl_int width) {
   cl_command_queue cq = clCreateCommandQueue(*context, *device, 0, &error);
 
   // Allocate memory for the kernel to work with
-  cl_mem mem1, mem2, mem3;
-  mem1 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_char)*(width), data, &error);
-  mem2 = clCreateBuffer(*context, CL_MEM_READ_ONLY, sizeof(cl_float)*4, job, &error);
+  cl_mem mem1, mem2, mem3, mem4, mem5;
+  mem1 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_char)*(width*2), data, &error);
+  mem2 = clCreateBuffer(*context, CL_MEM_READ_ONLY, sizeof(cl_fract)*4, job, &error);
   mem3 = clCreateBuffer(*context, CL_MEM_READ_ONLY, sizeof(cl_int), &width, &error);
+  mem4 = clCreateBuffer(*context, CL_MEM_READ_ONLY, sizeof(cl_fract), &y, &error);
+  mem5 = clCreateBuffer(*context, CL_MEM_READ_ONLY, sizeof(cl_char)*17, &table[0], &error);
   
   // get a handle and map parameters for the kernel
   error = clSetKernelArg(k_mandelbrot, 0, sizeof(mem1), &mem1);
   error = clSetKernelArg(k_mandelbrot, 1, sizeof(mem2), &mem2);
   error = clSetKernelArg(k_mandelbrot, 2, sizeof(mem3), &mem3);
+  error = clSetKernelArg(k_mandelbrot, 3, sizeof(mem4), &mem4);
+  error = clSetKernelArg(k_mandelbrot, 4, sizeof(mem5), &mem5);
 
   // Perform the operation (width is 100 in this example)
-  size_t global_dimensions[] = {100,0,0};
+  size_t global_dimensions[] = {width*2,0,0};
   error = clEnqueueNDRangeKernel(cq, k_mandelbrot, 1, NULL, global_dimensions, NULL, 0, NULL, NULL);
   // Read the result back into ciphertext 
   error = clEnqueueReadBuffer(cq, mem1, CL_TRUE, 0, sizeof(cl_char)*(width), data, 0, NULL, NULL);
@@ -135,6 +136,8 @@ int mandelbrot (cl_char *data, cl_float *job, cl_int width) {
   clReleaseMemObject(mem1);
   clReleaseMemObject(mem2);
   clReleaseMemObject(mem3);
+  clReleaseMemObject(mem4);
+  clReleaseMemObject(mem5);
   error=clFinish(cq);
   
   // return the ciphertext 

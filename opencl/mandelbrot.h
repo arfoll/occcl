@@ -13,8 +13,16 @@
 
 #include "initial.h"
 
+#define SINGLE 1
+
+#if SINGLE
+typedef cl_float cl_fract;
+#else
+typedef double cl_fract;
+#endif
+
 void _mandelbrot (int *w);
 void _initmandelbrot (int *w);
-int mandelbrot (cl_char *data, cl_float *job, cl_int width);
+int mandelbrot (cl_char *data, cl_fract *job, cl_int width, cl_fract *y);
 int init_mandelbrot ();
 

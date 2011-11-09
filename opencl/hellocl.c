@@ -76,13 +76,13 @@ int main() {
   fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
   // run mandelbrot CL kernel
   cl_int width = 100;
-  double *job = (double*)malloc(sizeof(double)*4);
+  cl_fract *job = (cl_fract*)malloc(sizeof(cl_fract)*4);
   for (i=0; i < 4; i++)
     job[i] = 0.0;
   cl_char *chdata = (cl_char*)malloc(sizeof(cl_char)*width*2);
   for (i=0; i < width*2; i++)
     chdata[i] = i;
-  double y = 4.59; 
+  cl_fract y = 4.59; 
   error += mandelbrot(chdata, job, width, &y);
   fprintf (stdout, "mandelbrot errors = %s\n", errorMessageCL(error));
 #if PRINT_MANDEL

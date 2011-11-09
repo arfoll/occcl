@@ -137,9 +137,9 @@ PROC hello (CHAN BYTE out!)
 
     mandelocc(out!)
 
---    out.string ("rot13 over. start mandelbrot*n", 0, out!)
---    C.initmandelbrot ()
---    out.string ("mandelbrot init over*n", 0, out!)
+    out.string ("rot13 over. start mandelbrot*n", 0, out!)
+    C.initmandelbrot ()
+    out.string ("mandelbrot init over*n", 0, out!)
     mandel (out!)
 --    [4] CHAN BYTE chans:
 --    INITIAL BOOL running IS TRUE:
