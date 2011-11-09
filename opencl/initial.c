@@ -71,7 +71,6 @@ cl_int getDevInfo()
 {
   char buffer[10240];
   cl_int error;
-  int i;
   error = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, sizeof(buffer), buffer, NULL);
   fprintf(stdout, "%s\n", buffer);
 }
