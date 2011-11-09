@@ -27,7 +27,7 @@ int main() {
   // CL initialisation
   error = initialisecl();
 
-  error = getDevInfo();
+  getDevInfo();
 
 #if SIN
   // SIN wave
