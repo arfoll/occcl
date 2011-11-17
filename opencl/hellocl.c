@@ -76,22 +76,48 @@ int main() {
   fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
   // run mandelbrot CL kernel
   cl_int width = 100;
-  cl_fract *job = (cl_fract*)malloc(sizeof(cl_fract)*4);
-  for (i=0; i < 4; i++)
-    job[i] = 0.0;
+  cl_fract *job = (cl_fract*)malloc(sizeof(cl_fract)*5);
+  cl_fract *job2 = (cl_fract*)malloc(sizeof(cl_fract)*4);
+  cl_fract rawdata[4] = {-25.000000, 17.547363, -0.047774, 0.204189};
+  for (i=0; i < 4; i++) {
+    job[i]  = rawdata[i];
+    job2[i] = rawdata[i];
+  }
+  cl_fract y = job[0]/job[1] - job[2];
+  job[4] = y;
   cl_char *chdata = (cl_char*)malloc(sizeof(cl_char)*width*2);
-  for (i=0; i < width*2; i++)
+  cl_char *chdata2 = (cl_char*)malloc(sizeof(cl_char)*width*2);
+  for (i=0; i < width*2; i++) {
     chdata[i] = i;
-  cl_fract y = 4.59; 
-  error += mandelbrot(chdata, job, width, &y);
+    chdata2[i] = i;
+  }
+  error += mandelbrot(chdata, job, width);
+  mandelbrot_c(chdata2, job2, width);
   fprintf (stdout, "mandelbrot errors = %s\n", errorMessageCL(error));
 #if PRINT_MANDEL
   for (i=0; i < width; i++) {
-    printf("mandel(%d) = %d\n", i, (int) chdata[i]);
-    i = i + 10;
+    //if (chdata[i] != chdata2[i]) {
+      fprintf(stdout, "mandelcl(%d) = %d vs %d\n", i, (int) chdata[i], (int) chdata2[i]);
+    //}
   }
 #endif
 
+#if 0
+  float complex c = 10 + 5i;
+  float complex d = 10 + 5i;
+  cl_fract real = __real__ c;
+  cl_fract imag = __imag__ c;
+  //cl_fract e = ((real*real) + (imag*imag));
+  c = c*c;
+  cl_fract e = COMPLEX64ABSSQ(c);
+  fprintf (stdout, "float e = %f, realc = %f, imagc = %f\n", e, __real__ c, __imag__ c);
+  real = __real__ d;
+  imag = __imag__ d;
+  cl_fract iter_r = (real*real) - (imag*imag); \
+  cl_fract iter_i = (imag*real) + (real*imag); \
+  cl_fract f = (iter_r*iter_r)+(iter_i*iter_i);
+  fprintf (stdout, "float f = %f, realc = %f, imagc = %f\n", f, iter_r, iter_i);
+#endif
 
   return error;
 }

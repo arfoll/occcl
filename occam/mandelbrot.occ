@@ -27,6 +27,7 @@
 #PRAGMA EXTERNAL "PROC C.mandelbrot (VAL []BYTE data, VAL []REAL32 job, VAL INT width) = 0"
 #PRAGMA EXTERNAL "PROC C.initmandelbrot () = 0"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
+#PRAGMA EXTERNAL "PROC C.printfjob (VAL []REAL32 job) = 0"
 
 VAL INT IMAGE.WIDTH IS 100:
 VAL INT IMAGE.HEIGHT IS 50:
@@ -66,7 +67,7 @@ PROC worker (SHARED CT.WORK.IN! link.in, SHARED CT.WORK.OUT! link.out)
       SEQ
         CLAIM link.in
           link.in[in] ? frame; jobid; job
-
+        --C.printfjob (job)
         IF
           (jobid = (-1)) OR (frame = (-1))
             running := FALSE
