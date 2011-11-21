@@ -15,6 +15,9 @@
 static cl_context context;
 static cl_device_id device;
 
+/**
+ * Occam-pi call for initialisecl
+ */
 void _initialisecl(int *ws)
 {
   initialisecl();
@@ -40,7 +43,7 @@ cl_int initialisecl()
       fprintf(stderr, "Error getting platform ids: %s", errorMessageCL(error));
     }
 
-    error=clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 1, &device, &devices);
+    error = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 1, &device, &devices);
     if (error != CL_SUCCESS) {
       fprintf(stderr, "Error getting device ids: %s", errorMessageCL(error));
     }
@@ -59,19 +62,31 @@ cl_int initialisecl()
     return error;
 #if ERROR_CHECK
   }
-
   return CL_SUCCESS;
 #endif
 }
 
 /**
- * Get some device info
+ * Print the extensions supported by the device
  */
-void getDevInfo()
+void printDevExt()
 {
-  char buffer[10240];
-  clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, sizeof(buffer), buffer, NULL);
-  fprintf(stdout, "%s\n", buffer);
+  char deviceExtensions[2048];
+  clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, sizeof(deviceExtensions), deviceExtensions, NULL);
+  fprintf(stdout, "%s\n", deviceExtensions);
+}
+
+/**
+ * Check the device supports the extension
+ */
+int extSupported(char *ext)
+{
+  char deviceExtensions[2048];
+  clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, sizeof(deviceExtensions), deviceExtensions, NULL);
+  if(!strstr(deviceExtensions, ext)) {
+    return 0;
+  }
+  return 1;
 }
 
 /**
@@ -98,16 +113,25 @@ cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog)
   return error;
 }
 
+/**
+ * Return the cl_context
+ */
 cl_context* get_cl_context()
 {
   return &context;
 }
 
+/**
+ * Return the cl_device
+ */
 cl_device_id* get_cl_device()
 {
   return &device;
 }
 
+/**
+ * Returns a string depending on the error code
+ */
 const char* errorMessageCL(cl_int error)
 {
     static const char* errorString[] = {

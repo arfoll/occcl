@@ -29,7 +29,10 @@ int main() {
   // CL initialisation
   error = initialisecl();
 
-  getDevInfo();
+  printDevExt();
+  if (!extSupported("cl_khr_byte_addressable_store")) {
+    fprintf (stdout, "cl_khr_byte_addressable_store not available on this device\n");
+  }
 
 #if SIN
   // SIN wave

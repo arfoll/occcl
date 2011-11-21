@@ -11,7 +11,8 @@ void _initialisecl(int *ws);
 cl_int initialisecl();
 cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog);
 const char* errorMessageCL(cl_int error);
-void getDevInfo();
+void printDevExt();
+int extSupported(char *ext);
 cl_context* get_cl_context();
 cl_device_id* get_cl_device();
 
