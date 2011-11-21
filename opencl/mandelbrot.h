@@ -14,6 +14,7 @@
 #include "initial.h"
 
 #define SINGLE 1
+#define MAX_SOURCE_SIZE (0x100000)
 
 #if SINGLE
 typedef cl_float cl_fract;

@@ -201,6 +201,7 @@ PROC mandelbrot (CHAN BYTE kyb?, scr!, err!)
     cursor.invisible (scr!)
     erase.screen (scr!)
 
+    -- initialise openCL and mandelbrot CL kernel
     C.initialisecl()
     C.initmandelbrot ()
 

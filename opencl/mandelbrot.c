@@ -7,89 +7,22 @@
 
 #include "mandelbrot.h"
 
-cl_char table[] = " .,*~*^:;|&[$%@#";
-#if 1
-cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
-#else
-cl_int table_int[] = {  0,  1,  2,  3,   4,  5,  6,  7,  8,   9, 10, 11, 12, 13, 14, 15 };
-#endif
-
-#if 1 
-const char mandelbrot_cl[] =
-"#pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable \n\
-__kernel void mandelbrot (__global char *data, __global float *job) \n\
-{ \n\
-  int table_char[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 }; \n\
-  const uint idx = get_global_id(0); \n\
-  if (idx < 100) { \n\
-    float real = ((idx - ((100)/2)) / (job[1] * 2.0)) - job[3]; \n\
-    float imag = job[4]; \n\
-    float iter_real = 0.0; \n\
-    float iter_imag = 0.0; \n\
-    int count = 0; \n\
-    while ((((iter_real*iter_real)+(iter_imag*iter_imag)) < 32.0) && (count < 240)) { \n\
-      float iter_real2 = iter_real; \n\
-      float iter_imag2 = iter_imag; \n\
-      float iter_r; \n\
-      float iter_i; \n\
-      iter_r = (iter_real*iter_real2) - (iter_imag*iter_imag2); \n\
-      iter_i = (iter_imag*iter_real2) + (iter_real*iter_imag2); \n\
-      iter_real = real + iter_r; \n\
-      iter_imag = imag + iter_i; \n\
-      count = count + 1; \n\
-    } \n\
-    int val = count % 16; \n\
-    data[idx*2] = (char) (val % 6); \n\
-    data[(idx*2)+1] = (char) table_char[val]; \n\
-  } \n\
-}";
-#else
-    data[idx*2] = (char) (val % 6); \n\
-    data[(idx*2)+1] = (char) table_char[val]; \n\
-const char mandelbrot_cl[] = " \
-__kernel void mandelbrot (__global char *data, __global float *job)\
-{ \
-  int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 }; \n\
-  int idx = get_global_id(0); \
-  if (idx < 100) { \
-    char x = table_int[idx % 16]; \
-    data[idx*2] = x; \
-    data[(idx*2)+1] = x;\
-  } \
-}";
-#endif
-
-cl_fract COMPLEX64ABSSQ (float complex c)
-{
-  cl_fract real = __real__ c;
-  cl_fract imag = __imag__ c;
-  return (real*real) + (imag*imag);
-}
-
 #if 0
-int calc (float complex c)
-{
-  float complex iter;
-  __real__ iter = 0.0;
-  __imag__ iter = 0.0;
-  int count = 0;
-  while ((((COMPLEX64ABSSQ(iter))) < 32.0) && (count < 240)) {
-    iter = (iter * iter) + c;
-    count++;
-  }
-  return count;
-}
+cl_char table[] = " .,*~*^:;|&[$%@#";
+#else
+cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
 #endif
 
 void mandelbrot_c (cl_char *data, cl_fract *job, cl_int width)
 {
   int i = 0;
   cl_fract y = job[0]/job[1] - job[2];
+#if 0
   fprintf (stderr, "native job0 = %f, job1 = %f, job2, %f, job3 %f, y = %f\n", job[0], job[1], job[2], job[3], y);
+#endif
   for (i = 0; i < width; i++) {
-    cl_float real = ((i - ((width)/2)) / (job[1] * 2.0)) - job[3];
+    cl_float real = ((i - 50) / (job[1] * 2.0)) - job[3];
     cl_float imag = y;
-    //int val = calc (c) % 16;
     cl_float iter_real = 0.0;
     cl_float iter_imag = 0.0;
     int count = 0;
@@ -104,11 +37,9 @@ void mandelbrot_c (cl_char *data, cl_fract *job, cl_int width)
       iter_imag = imag + iter_i;
       count++;
     }
-    int val = count;
-    //fprintf (stdout, "count: %d\n", val);
-    data[i] = (cl_char) val;
-    //data[i*2] = (char) (val % 6);
-    //data[(i*2)+1] = table_int[val];
+    int val = count % 16;
+    data[i*2] = (char) (val % 6);
+    data[(i*2)+1] = table_int[val];
   }
 }
 
@@ -191,12 +122,17 @@ int init_mandelbrot ()
     return 1;
   }
 
-  //error = initialisecl();
   context = get_cl_context();
   device = get_cl_device();
 
-  const char *src=mandelbrot_cl;
-  size_t srcsize=strlen(mandelbrot_cl);
+  FILE *fp = fopen("mandelbrot.cl", "r");
+  if (!fp) {
+    fprintf(stderr, "Failed to load kernel.\n");
+    return(1);
+  }
+  char *src = (char*) malloc (MAX_SOURCE_SIZE);
+  size_t srcsize = fread (src, 1, MAX_SOURCE_SIZE, fp);
+  fclose (fp);
   const char *srcptr[]={src};
 
   // build CL program
@@ -204,7 +140,6 @@ int init_mandelbrot ()
   // create kernel
   k_mandelbrot = clCreateKernel(prog, "mandelbrot", &error);
 
-  // we are initialised
   // TODO: use error val to calculate this
   mandelbrot_init = 1;
   return error;
