@@ -8,12 +8,14 @@
 #include "sin.h"
 #include "rot13.h"
 #include "mandelbrot.h"
+#include "modulo.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 
 #define SIN 1
 #define PRINT_SIN 0
-#define PRINT_MANDEL 1
+#define PRINT_MANDEL 0
 
 int main() {
   char plaintext[]="Hello, World!";
@@ -102,7 +104,7 @@ int main() {
   }
 #endif
 
-#if 0
+#if 0 
   float complex c = 10 + 5i;
   float complex d = 10 + 5i;
   cl_fract real = __real__ c;
@@ -117,6 +119,22 @@ int main() {
   cl_fract iter_i = (imag*real) + (real*imag); \
   cl_fract f = (iter_r*iter_r)+(iter_i*iter_i);
   fprintf (stdout, "float f = %f, realc = %f, imagc = %f\n", f, iter_r, iter_i);
+#endif
+
+#if 1
+  //modulo test
+  error = 0;
+  fprintf (stdout, "========= MODULO PRECISION TEST =========\n");
+  error = 0;
+  error += init_modulo();
+  cl_int num = -30;
+  cl_float amount = 0.123145;
+  cl_float mod = 0;
+  error += modulo(&num, &mod, &amount);
+  fprintf (stdout, "CL exceution = %f\n", mod);
+  cl_float res = (num - 50) / (amount * 2.0);
+  res = (res * res) * res;
+  fprintf (stdout, "C  execution = %f\n", res);
 #endif
 
   return error;
