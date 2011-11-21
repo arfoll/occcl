@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <math.h>
 
+#define DEVCHECK 1
 #define SIN 1
 #define PRINT_SIN 0
 #define PRINT_MANDEL 0
@@ -29,10 +30,22 @@ int main() {
   // CL initialisation
   error = initialisecl();
 
+  printDeviceName();
   printDevExt();
-  if (!extSupported("cl_khr_byte_addressable_store")) {
-    fprintf (stdout, "cl_khr_byte_addressable_store not available on this device\n");
+#if DEVCHECK
+  int devicenum = 0;
+  while (!extSupported("cl_khr_byte_addressable_store") && devicenum < getMaxDevices()) {
+    nextDevice();
+    printDeviceName();
+    printDevExt();
+    devicenum++;
   }
+
+  if (devicenum > getMaxDevices()) {
+    fprintf (stdout, "no devices on this system support the required extension");
+    return 0;
+  }
+#endif
 
 #if SIN
   // SIN wave

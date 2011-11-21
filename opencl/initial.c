@@ -13,7 +13,10 @@
 #define DEBUG 1
 
 static cl_context context;
-static cl_device_id device;
+static cl_device_id *device;
+static cl_uint numdevices;
+static cl_uint currentdevice = 0;
+cl_device_id devices[NUM_DEVICES];
 
 /**
  * Occam-pi call for initialisecl
@@ -35,7 +38,8 @@ cl_int initialisecl()
 #endif
     cl_int error;
     cl_platform_id platform;
-    cl_uint platforms, devices;
+    cl_uint platforms;
+    device = &devices[currentdevice];
 
     //Fetch the Platform and Device IDs; we only want one.
     error = clGetPlatformIDs(1, &platform, &platforms);
@@ -43,7 +47,7 @@ cl_int initialisecl()
       fprintf(stderr, "Error getting platform ids: %s", errorMessageCL(error));
     }
 
-    error = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 1, &device, &devices);
+    error = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, NUM_DEVICES, device, &numdevices);
     if (error != CL_SUCCESS) {
       fprintf(stderr, "Error getting device ids: %s", errorMessageCL(error));
     }
@@ -54,7 +58,7 @@ cl_int initialisecl()
     }
 
     //AMD stream SDK requires the platform property
-    context = clCreateContext(properties, 1, &device, NULL, NULL, &error);
+    context = clCreateContext(properties, 1, device, NULL, NULL, &error);
     if (error != CL_SUCCESS) {
       fprintf(stderr, "Error creating context: %s", errorMessageCL(error));
     }
@@ -72,8 +76,18 @@ cl_int initialisecl()
 void printDevExt()
 {
   char deviceExtensions[2048];
-  clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, sizeof(deviceExtensions), deviceExtensions, NULL);
+  clGetDeviceInfo((*device), CL_DEVICE_EXTENSIONS, sizeof(deviceExtensions), deviceExtensions, NULL);
   fprintf(stdout, "%s\n", deviceExtensions);
+}
+
+/**
+ * Print device name
+ */
+void printDeviceName()
+{
+  char deviceName[1024];
+  clGetDeviceInfo((*device), CL_DEVICE_NAME, sizeof(deviceName), deviceName, NULL);
+  fprintf (stdout, "OpenCL device : %s\n",deviceName);
 }
 
 /**
@@ -82,11 +96,30 @@ void printDevExt()
 int extSupported(char *ext)
 {
   char deviceExtensions[2048];
-  clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, sizeof(deviceExtensions), deviceExtensions, NULL);
+  clGetDeviceInfo((*device), CL_DEVICE_EXTENSIONS, sizeof(deviceExtensions), deviceExtensions, NULL);
   if(!strstr(deviceExtensions, ext)) {
     return 0;
   }
   return 1;
+}
+
+/**
+ * Use the next device
+ */
+void nextDevice()
+{
+  if (numdevices > 1 && currentdevice < numdevices)
+    device = &devices[(currentdevice + 1)];
+  else
+    device = &devices[0];
+}
+
+/**
+ *
+ */
+int getMaxDevices()
+{
+  return numdevices;
 }
 
 /**
@@ -104,7 +137,7 @@ cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog)
 #if DEBUG
   if (error != CL_SUCCESS) {
     char log[32768];
-    error = clGetProgramBuildInfo(*prog, device, CL_PROGRAM_BUILD_LOG, 4096, log, NULL);
+    error = clGetProgramBuildInfo(*prog, *device, CL_PROGRAM_BUILD_LOG, 4096, log, NULL);
     fprintf(stderr, "** %s\n", log);
     fprintf(stdout, "error : %s\n", errorMessageCL(error));
   }
@@ -126,7 +159,7 @@ cl_context* get_cl_context()
  */
 cl_device_id* get_cl_device()
 {
-  return &device;
+  return device;
 }
 
 /**
