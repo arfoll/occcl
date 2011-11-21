@@ -8,6 +8,7 @@
 #include "rot13.h"
 
 const char rot13_cl[] = "       \
+#pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable \
 __kernel void rot13         \
     (   __global    const   char*    in     \
     ,   __global            char*    out    \

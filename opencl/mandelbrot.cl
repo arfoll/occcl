@@ -5,7 +5,7 @@
  * Copyright 2011 - University of Kent
  */
 
-#pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable 
+#pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable
 
 __kernel void mandelbrot (__global char *data, __global float *job) 
 { 
