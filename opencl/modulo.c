@@ -49,12 +49,9 @@ int init_modulo()
 {
   cl_int error;
 
-  if (modulo_init) {
-    // if called again should we do nothing or restart init from scratch?
+  if (modulo_init)
     return 1;
-  }
 
-  //error = initialisecl();
   context = get_cl_context();
   device = get_cl_device();
 
@@ -67,6 +64,8 @@ int init_modulo()
   // create kernel
   k_modulo = clCreateKernel(prog, "modulo", &error);
 
-  modulo_init = 1;
+  if (!error)
+    modulo_init = 1;
+
   return error;
 }

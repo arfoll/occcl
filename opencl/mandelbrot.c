@@ -6,6 +6,8 @@
  */
 
 #include "mandelbrot.h"
+#define DEBUG 0
+#define CLMANDEL 1
 
 #if 0
 cl_char table[] = " .,*~*^:;|&[$%@#";
@@ -13,11 +15,12 @@ cl_char table[] = " .,*~*^:;|&[$%@#";
 cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
 #endif
 
+#if 0
 void mandelbrot_c (cl_char *data, cl_fract *job, cl_int width)
 {
   int i = 0;
   cl_fract y = job[0]/job[1] - job[2];
-#if 0
+#if DEBUG
   fprintf (stderr, "native job0 = %f, job1 = %f, job2, %f, job3 %f, y = %f\n", job[0], job[1], job[2], job[3], y);
 #endif
   for (i = 0; i < width; i++) {
@@ -42,6 +45,42 @@ void mandelbrot_c (cl_char *data, cl_fract *job, cl_int width)
     data[(i*2)+1] = table_int[val];
   }
 }
+#else
+float COMPLEX64ABSSQ (float complex c)
+{
+  float real = __real__ c;
+  float imag = __imag__ c;
+  return (real*real) + (imag*imag);
+}
+
+int calc (float complex c)
+{
+  float complex iter;
+  __real__ iter = 0.0;
+  __imag__ iter = 0.0;
+  int count = 0;
+  while ((((COMPLEX64ABSSQ(iter))) < 32.0) && (count < 240)) {
+    iter = (iter * iter) + c;
+    count++;
+  }
+  return count;
+}
+
+void mandelbrot_c (cl_char *data, cl_float *job, cl_int width)
+{
+  int i = 0;
+  float y = job[0]/job[1] - job[2];
+  for (i = 0; i < width; i++) {
+    float x = ((i - ((width)/2)) / (job[1] * 2.0)) - job[3];
+    float complex c;
+     __real__ c = x;
+     __imag__ c = y;
+    int val = calc (c) % 16;
+    data[i*2] = (char) (val % 6);
+    data[(i*2)+1] = table_int[val];
+  }
+}
+#endif
 
 static int mandelbrot_init = 0;
 static cl_context* context;
@@ -51,7 +90,7 @@ static cl_kernel k_mandelbrot;
 
 void _mandelbrot (int *w)
 { 
-#if 0
+#if CLMANDEL
   mandelbrot_c ((cl_char*) (w[0]), (cl_fract*) (w[2]), (cl_int) (w[4]));
 #else
   cl_fract *job = (cl_fract*) (w[2]);
@@ -80,7 +119,7 @@ int mandelbrot (cl_char *data, cl_fract *job, cl_int width) {
   }
 #endif
 
-#if 0
+#if DEBUG
   fprintf (stderr, "opencl job0 = %f, job1 = %f, job2, %f, job3 %f, y = %f\n", 
            job[0], job[1], job[2], job[3], job[4]);
 #endif
@@ -117,10 +156,8 @@ int init_mandelbrot ()
 {
   cl_int error;
 
-  if (mandelbrot_init) {
-    // if called again should we do nothing or restart init from scratch?
+  if (mandelbrot_init)
     return 1;
-  }
 
   context = get_cl_context();
   device = get_cl_device();
@@ -140,7 +177,8 @@ int init_mandelbrot ()
   // create kernel
   k_mandelbrot = clCreateKernel(prog, "mandelbrot", &error);
 
-  // TODO: use error val to calculate this
-  mandelbrot_init = 1;
+  if (!error)
+    mandelbrot_init = 1;
+
   return error;
 }

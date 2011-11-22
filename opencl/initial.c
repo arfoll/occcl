@@ -235,9 +235,7 @@ const char* errorMessageCL(cl_int error)
     };
 
     const int errorCount = sizeof(errorString) / sizeof(errorString[0]);
-
     const int index = -error;
 
     return (index >= 0 && index < errorCount) ? errorString[index] : "";
-
 }

@@ -85,12 +85,9 @@ int init_rot13 ()
 {
   cl_int error;
 
-  if (rot13_init) {
-    // if called again should we do nothing or restart init from scratch?
+  if (rot13_init)
     return 1;
-  }
 
-  //error = initialisecl();
   context = get_cl_context();
   device = get_cl_device();
 
@@ -104,7 +101,8 @@ int init_rot13 ()
   k_rot13 = clCreateKernel(prog, "rot13", &error);
 
   // we are initialised
-  // TODO: use error val to calculate this
-  rot13_init = 1;
+  if (!error)
+    rot13_init = 1;
+
   return error;
 }

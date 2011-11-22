@@ -26,6 +26,5 @@ void _mandelbrot (int *w);
 void _initmandelbrot (int *w);
 int mandelbrot (cl_char *data, cl_fract *job, cl_int width);
 void mandelbrot_c (cl_char *data, cl_fract *job, cl_int width);
-cl_fract COMPLEX64ABSSQ (float complex c);
 int init_mandelbrot ();
 

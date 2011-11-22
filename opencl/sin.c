@@ -57,12 +57,9 @@ int init_sin ()
 {
   cl_int error;
 
-  if (sin_init) {
-    // if called again should we do nothing or restart init from scratch?
+  if (sin_init)
     return 1;
-  }
 
-  //error = initialisecl();
   context = get_cl_context();
   device = get_cl_device();
 
@@ -75,8 +72,8 @@ int init_sin ()
   // create kernel
   k_sin = clCreateKernel(prog, "sin_cl", &error);
 
-  // we are initialised
-  // TODO: use error val to calculate this
-  sin_init = 1;
+  if (!error)
+    sin_init = 1;
+
   return error;
 }

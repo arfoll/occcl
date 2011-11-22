@@ -16,7 +16,7 @@
 #define DEVCHECK 1
 #define SIN 1
 #define PRINT_SIN 0
-#define PRINT_MANDEL 0
+#define PRINT_MANDEL 1
 
 int main() {
   char plaintext[]="Hello, World!";
@@ -96,7 +96,8 @@ int main() {
   cl_int width = 100;
   cl_fract *job = (cl_fract*)malloc(sizeof(cl_fract)*5);
   cl_fract *job2 = (cl_fract*)malloc(sizeof(cl_fract)*4);
-  cl_fract rawdata[4] = {-25.000000, 17.547363, -0.047774, 0.204189};
+  //cl_fract rawdata[4] = {-25.000000, 17.547363, -0.047774, 0.204189};
+  cl_fract rawdata[4] = {6.000000, 118.243523, -0.267312, 1.142518};
   for (i=0; i < 4; i++) {
     job[i]  = rawdata[i];
     job2[i] = rawdata[i];
