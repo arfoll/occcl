@@ -7,27 +7,22 @@
 
 #include "rot13.h"
 
-const char rot13_cl[] = "       \
-#pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable \
-__kernel void rot13         \
-    (   __global    const   char*    in     \
-    ,   __global            char*    out    \
-    )             \
-{             \
-    const uint index = get_global_id(0);    \
-              \
-    char c=in[index];         \
-    if (c<'A' || c>'z' || (c>'Z' && c<'a')) {   \
-        out[index] = in[index];       \
-    } else {            \
-        if (c>'m' || (c>'M' && c<'a')) {    \
-      out[index] = in[index]-13;      \
-  } else {          \
-      out[index] = in[index]+13;      \
-  }           \
-    }             \
-}             \
-";
+const char rot13_cl[] = 
+"#pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable \n\
+  __kernel void rot13 (__global const char* in, __global char* out ) \n\
+{ \n\
+    const uint index = get_global_id(0); \n\
+    char c=in[index]; \n\
+    if (c<'A' || c>'z' || (c>'Z' && c<'a')) { \n\
+        out[index] = in[index]; \n\
+    } else { \n\
+      if (c>'m' || (c>'M' && c<'a')) { \n\
+        out[index] = in[index]-13; \n\
+      } else { \n\
+        out[index] = in[index]+13; \n\
+      } \n\
+    } \n\
+}";
 
 static int rot13_init = 0;
 static cl_context* context;
