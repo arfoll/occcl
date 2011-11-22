@@ -97,7 +97,10 @@ PROC mandelocc (CHAN BYTE out!)
       SEQ i = 0 FOR width
         data[i] := BYTE i
       SEQ i = 0 FOR 4
-        job[i] := REAL64 TRUNC i
+        SEQ
+          job[i] := REAL64 TRUNC i
+          out.real64 (job[i], 0, 2, out!)
+      out.string("*n", 0, out!)
     -- init over
     VAL REAL64 y IS (job[0] / job[1]) - job[2]:
     SEQ i = 0 FOR width 
@@ -110,9 +113,9 @@ PROC mandelocc (CHAN BYTE out!)
         --out.int ((INT TRUNC y), 0, out!)
         --out.string ("*n", 0, out!)
         val := calc ([x,y](COMPLEX64)) \ 16
-        out.string ("count: ", 0, out!)
-        out.int (val, 0, out!)
-        out.string ("*n", 0, out!)
+--        out.string ("count: ", 0, out!)
+--        out.int (val, 0, out!)
+--        out.string ("*n", 0, out!)
         data[i*2] := BYTE (val \ 6)
         data[(i*2)+1] := table[val]
     -- output results
@@ -126,18 +129,18 @@ PROC hello (CHAN BYTE out!)
     out.string ("opencl occam test*n", 0, out!)
     C.initialisecl()
     out.string ("opencl init over *n", 0, out!)
---    C.initrot13()
---    out.string ("rot13 init over*n", 0, out!)
+    C.initrot13()
+    out.string ("rot13 init over*n", 0, out!)
 
---    rot13 ("opencl is awesome", out!)
---    out.string ("*c*n", 0, out!)
+    rot13 ("opencl is awesome", out!)
+    out.string ("*c*n", 0, out!)
 
---    occrot13 ("opencl is awesome", out!)
---    out.string ("*c*n", 0, out!)
+    occrot13 ("opencl is awesome", out!)
+    out.string ("*c*n", 0, out!)
 
     mandelocc(out!)
 
-    out.string ("rot13 over. start mandelbrot*n", 0, out!)
+    out.string ("start mandelbrot*n", 0, out!)
     C.initmandelbrot ()
     out.string ("mandelbrot init over*n", 0, out!)
     mandel (out!)
