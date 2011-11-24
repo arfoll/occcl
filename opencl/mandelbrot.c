@@ -9,11 +9,7 @@
 #define DEBUG 0
 #define CLMANDEL 1
 
-#if 0
-cl_char table[] = " .,*~*^:;|&[$%@#";
-#else
 cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
-#endif
 
 #if 0
 void mandelbrot_c (cl_char *data, cl_fract *job, cl_int width)

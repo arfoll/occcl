@@ -23,9 +23,7 @@ int main() {
   char ciphertext[sizeof plaintext];
   
   cl_int error;
-#if SIN
   int i;
-#endif
 
   // CL initialisation
   error = initialisecl();
@@ -119,23 +117,6 @@ int main() {
       fprintf(stdout, "mandelcl(%d) = %d vs %d\n", i, (int) chdata[i], (int) chdata2[i]);
     //}
   }
-#endif
-
-#if 0 
-  float complex c = 10 + 5i;
-  float complex d = 10 + 5i;
-  cl_fract real = __real__ c;
-  cl_fract imag = __imag__ c;
-  //cl_fract e = ((real*real) + (imag*imag));
-  c = c*c;
-  cl_fract e = COMPLEX64ABSSQ(c);
-  fprintf (stdout, "float e = %f, realc = %f, imagc = %f\n", e, __real__ c, __imag__ c);
-  real = __real__ d;
-  imag = __imag__ d;
-  cl_fract iter_r = (real*real) - (imag*imag); \
-  cl_fract iter_i = (imag*real) + (real*imag); \
-  cl_fract f = (iter_r*iter_r)+(iter_i*iter_i);
-  fprintf (stdout, "float f = %f, realc = %f, imagc = %f\n", f, iter_r, iter_i);
 #endif
 
 #if 1
