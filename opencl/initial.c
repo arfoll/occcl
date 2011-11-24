@@ -136,7 +136,7 @@ cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog)
 // TODO: ERROR_CHECK not DEBUG
 #if DEBUG
   if (error != CL_SUCCESS) {
-    char log[32768];
+    char log[4096];
     error = clGetProgramBuildInfo(*prog, *device, CL_PROGRAM_BUILD_LOG, 4096, log, NULL);
     fprintf(stderr, "** %s\n", log);
     fprintf(stdout, "error : %s\n", errorMessageCL(error));
