@@ -14,6 +14,15 @@ buildcl() builds from src a program which can then be executed by the cl_program
 
 All CL programs are in one .c file with the _init call and the call seperated. The _init needs to run once before the CL program can be executed. There is only a check if it is enabled at compile time.
 
+HARDWARE
+CL_DEVICE_TYPE_GPU:
+  ATI RV770 (HD4850) (cl_khr_byte_addressable_store not supported)
+  Nvidia 8600GT
+  Nvidia ION
+CL_DEVICE_TYPE_CPU:
+  2x Intel E5420
+  Intel Core i7-2600
+
 RESULTS
 
 CONCLUSION
