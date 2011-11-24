@@ -87,8 +87,6 @@ static cl_kernel k_mandelbrot;
 void _mandelbrot (int *w)
 { 
 #if CLMANDEL
-  mandelbrot_c ((cl_char*) (w[0]), (cl_fract*) (w[2]), (cl_int) (w[4]));
-#else
   cl_fract *job = (cl_fract*) (w[2]);
   cl_fract job_y[5];
   job_y[0] = job[0];
@@ -97,6 +95,8 @@ void _mandelbrot (int *w)
   job_y[3] = job[3];
   job_y[4] = job[0]/job[1] - job[2];
   mandelbrot ((cl_char*) (w[0]), (cl_fract*) (&job_y), (cl_int) (w[4]));
+#else
+  mandelbrot_c ((cl_char*) (w[0]), (cl_fract*) (w[2]), (cl_int) (w[4]));
 #endif
 }
 
