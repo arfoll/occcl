@@ -13,82 +13,33 @@
 #include <stdio.h>
 #include <math.h>
 
-#define DEVCHECK 1
-#define SIN 1
 #define PRINT_SIN 0
-#define PRINT_MANDEL 1
+#define PRINT_MANDEL 0
 
-int main() {
-  char plaintext[]="Hello, World!";
-  char ciphertext[sizeof plaintext];
-  
-  cl_int error;
-  int i;
-
-  // CL initialisation
-  error = initialisecl();
-
-  printDeviceName();
-  printDevExt();
-#if DEVCHECK
+int getCorrectDevice(char *requiredExt) {
   int devicenum = 0;
-  while (!extSupported("cl_khr_byte_addressable_store") && devicenum < getMaxDevices()) {
+  while (!extSupported(requiredExt) && devicenum < getMaxDevices()) {
     nextDevice();
+    fprintf (stdout, "========= CHANGED CL DEVICE =========\n");
     printDeviceName();
     printDevExt();
     devicenum++;
   }
+  return CL_SUCCESS;
 
   if (devicenum > getMaxDevices()) {
-    fprintf (stdout, "no devices on this system support the required extension");
-    return 0;
+    fprintf (stdout, "no devices on this system support the required extension\n");
+    return 1;
   }
-#endif
+}
 
-#if SIN
-  // SIN wave
-  fprintf (stdout, "========= SIN =========\n");
-  // Create and initialize the input data
-  cl_float *data;
-  data = (cl_float*)malloc(sizeof(cl_float)*10240);
-  for (i=0; i<10240; i++) {
-    data[i] = i;
-  }
-  // init sin
-  error = init_sin();
-  fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
-  // run sin kernel
-  error += clsin(data);
-  fprintf (stdout, "clsin errors = %s\n", errorMessageCL(error));
-#if PRINT_SIN
-  for (i=0; i<10240; i++) {
-    printf("sin(%d) = %f\n", i, data[i]);
-    i = i + 100;
-  }
-#endif
-  // free data
-  free (data);
-#endif
+int mandelbrotTest() {
+  cl_int error;
+  int i;
 
-  // reinit cl_error
-  error = 0;
-  fprintf (stdout, "========= ROT13 =========\n");
-  // rot13 initialisation
-  error += init_rot13();
-  fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
-
-  // run rot13 CL kernel
-  error += rot13(plaintext, ciphertext);
-
-  // Finally, output out happy message.
-  fprintf (stdout, "rot13 errors = %d, ciphertext = %s\n", error, ciphertext);
-
-  // reinit cl_error
-  error = 0;
   fprintf (stdout, "========= MANDELBROT =========\n");
-
   // mandelbrot initialisation
-  error += init_mandelbrot();
+  error = init_mandelbrot();
   fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
   // run mandelbrot CL kernel
   cl_int width = 100;
@@ -111,20 +62,24 @@ int main() {
   error += mandelbrot(chdata, job, width);
   mandelbrot_c(chdata2, job2, width);
   fprintf (stdout, "mandelbrot errors = %s\n", errorMessageCL(error));
-#if PRINT_MANDEL
+  int errors = 0;
   for (i=0; i < width; i++) {
-    //if (chdata[i] != chdata2[i]) {
+    if (chdata[i] != chdata2[i]) {
+      errors++;
+#if PRINT_MANDEL
       fprintf(stdout, "mandelcl(%d) = %d vs %d\n", i, (int) chdata[i], (int) chdata2[i]);
-    //}
-  }
 #endif
+    }
+  }
+  fprintf (stdout, "mandelbrot calculations with %d errors\n", errors);
+  return error;
+}
 
-#if 1
-  //modulo test
-  error = 0;
+int moduloTest() {
+  cl_int error;
+
   fprintf (stdout, "========= MODULO PRECISION TEST =========\n");
-  error = 0;
-  error += init_modulo();
+  error = init_modulo();
   cl_int num = -30;
   cl_float amount = 0.123145;
   cl_float mod = 0;
@@ -133,7 +88,90 @@ int main() {
   cl_float res = (num - 50) / (amount * 2.0);
   res = (res * res) * res;
   fprintf (stdout, "C  execution = %f\n", res);
+  return error;
+}
+
+int sinTest() {
+  cl_int error;
+  int i;
+
+  fprintf (stdout, "========= SIN =========\n");
+  // Create and initialize the input data
+  cl_float *data;
+  data = (cl_float*)malloc(sizeof(cl_float)*10240);
+  for (i=0; i<10240; i++) {
+    data[i] = i;
+  }
+  // init sin
+  error = init_sin();
+  fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
+  // run sin kernel
+  error += clsin(data);
+  fprintf (stdout, "clsin errors = %s\n", errorMessageCL(error));
+#if PRINT_SIN
+  for (i=0; i<10240; i++) {
+    printf("sin(%d) = %f\n", i, data[i]);
+    i = i + 100;
+  }
 #endif
+  // free data
+  free (data);
+
+  return error;
+}
+
+int rot13Test() {
+  cl_int error;
+
+  fprintf (stdout, "========= ROT13 =========\n");
+  // rot13 initialisation
+  error = init_rot13();
+  fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
+
+  char plaintext[]="Hello, World!";
+  char ciphertext[sizeof plaintext];
+
+  // run rot13 CL kernel
+  error += rot13(plaintext, ciphertext);
+
+  // Finally, output out happy message.
+  fprintf (stdout, "rot13 errors = %d, ciphertext = %s\n", error, ciphertext);
+
+  return error;
+}
+
+int main() {
+  cl_int error;
+
+  // CL initialisation
+  error = initialisecl();
+  if(error != CL_SUCCESS) {
+    fprintf (stdout, "initialisecl() returned %s", errorMessageCL(error));
+    return 1;
+  }
+
+  // Some general information
+  fprintf (stdout, "========= NEW CL DEVICE =========\n");
+  printDeviceName();
+  printDevExt();
+
+  // MODULO PRECISION
+  moduloTest();
+
+  // SIN
+  sinTest();
+
+  // Check device supports extensions we need for rot13 & mandelbrot
+  char *requiredExt = "cl_khr_byte_addressable_store";
+  if (getCorrectDevice(requiredExt)) {
+    return 2;
+  }
+
+  // ROT13
+  rot13Test();
+
+  // MODULO PRECISION
+  mandelbrotTest();
 
   return error;
 }
