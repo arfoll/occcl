@@ -17,8 +17,13 @@ All CL programs are in one .c file with the _init call and the call seperated. T
 HARDWARE
 CL_DEVICE_TYPE_GPU:
   ATI RV770 (HD4850) (cl_khr_byte_addressable_store not supported)
+    OpenCL 1.1 SDK = AMD APP SDK 2.5
+    Extensions = cl_amd_fp64 cl_khr_gl_sharing cl_amd_device_attribute_query
+    Num Compute units = 10
   Nvidia 8600GT
   Nvidia ION
+    OpenCL 1.1 SDK = Nvidia CUDA 4.0.1
+    Extensions = cl_khr_byte_addressable_store cl_khr_icd cl_khr_gl_sharing cl_nv_compiler_options cl_nv_device_attribute_query cl_nv_pragma_unroll
 CL_DEVICE_TYPE_CPU:
   2x Intel E5420
   Intel Core i7-2600
