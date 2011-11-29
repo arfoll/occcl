@@ -6,12 +6,12 @@
  */
 
 #include "mandelbrot.h"
-#define DEBUG 0
+#define DEBUG 1
 #define CLMANDEL 1
 
 cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
 
-#if 0
+#if 1
 void mandelbrot_c (cl_char *data, cl_fract *job, cl_int width)
 {
   int i = 0;
@@ -66,6 +66,9 @@ void mandelbrot_c (cl_char *data, cl_float *job, cl_int width)
 {
   int i = 0;
   float y = job[0]/job[1] - job[2];
+  #if DEBUG
+    fprintf (stderr, "native job0 = %f, job1 = %f, job2, %f, job3 %f, y = %f\n", job[0], job[1], job[2], job[3], y);
+  #endif
   for (i = 0; i < width; i++) {
     float x = ((i - ((width)/2)) / (job[1] * 2.0)) - job[3];
     float complex c;
@@ -123,6 +126,7 @@ int mandelbrot (cl_char *data, cl_fract *job, cl_int width) {
   // Allocate memory for the kernel to work with
   cl_mem mem1, mem2;
   mem1 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_char)*(width*2), 0, &error);
+//  mem1 = clCreateBuffer(*context, CL_MEM_USE_HOST_PTR, sizeof(cl_char)*(width*2), data, &error);
   mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_fract)*5, job, &error);
   
   // get a handle and map parameters for the kernel
@@ -133,13 +137,12 @@ int mandelbrot (cl_char *data, cl_fract *job, cl_int width) {
   size_t worksize = width;
   error = clEnqueueNDRangeKernel(cq, k_mandelbrot, 1, NULL, &worksize, 0, 0, 0, 0);
   // Read the result back into data
-  error = clEnqueueReadBuffer(cq, mem1, CL_TRUE, 0, (size_t) (width*2), data, 0, 0, 0);
+  error = clEnqueueReadBuffer(cq, mem1, CL_FALSE, 0, (size_t) (width*2), data, 0, 0, 0);
 
   // cleanup and wait for release of cq
+  error = clFinish(cq);
   clReleaseMemObject(mem1);
   clReleaseMemObject(mem2);
-
-  error = clFinish(cq);
   
   // return the ciphertext 
   return error;
