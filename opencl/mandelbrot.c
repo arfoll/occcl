@@ -6,7 +6,7 @@
  */
 
 #include "mandelbrot.h"
-#define DEBUG 1
+#define DEBUG 0
 #define CLMANDEL 1
 
 cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
@@ -169,7 +169,7 @@ int init_mandelbrot ()
   const char *srcptr[]={src};
 
   // build CL program
-  error = buildcl (srcptr, &srcsize, &prog, "");
+  error = buildcl (srcptr, &srcsize, &prog, "-cl-opt-disable");
   // create kernel
   k_mandelbrot = clCreateKernel(prog, "mandelbrot", &error);
 

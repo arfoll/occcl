@@ -13,13 +13,13 @@
 
 #include "initial.h"
 
-#define SINGLE 1
+#define DOUBLE 1
 #define MAX_SOURCE_SIZE (0x100000)
 
-#if SINGLE
-typedef cl_float cl_fract;
-#else
+#if DOUBLE
 typedef double cl_fract;
+#else
+typedef cl_float cl_fract;
 #endif
 
 void _mandelbrot (int *w);

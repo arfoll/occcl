@@ -8,6 +8,7 @@
 #include "modulo.h"
 
 const char modulo_cl[] = " \
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable \n\
 __kernel void modulo (__global int *num, __global float *mod, __global float *amount) \n\
 { \n\
   (*mod) = ((*num)-50) / (*amount * 2.0); \n\
@@ -60,7 +61,7 @@ int init_modulo()
   const char *srcptr[]={src};
 
   // build CL program
-  error = buildcl (srcptr, &srcsize, &prog, "");
+  error = buildcl (srcptr, &srcsize, &prog, "-cl-opt-disable");
   // create kernel
   k_modulo = clCreateKernel(prog, "modulo", &error);
 
