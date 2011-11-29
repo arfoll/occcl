@@ -126,13 +126,13 @@ int getMaxDevices()
 /**
  * builds the CL program from src and returns and return it
  */
-cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog)
+cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog, const char *options)
 {
   cl_int error;
   //Submit the source code of the rot13 kernel to OpenCL
   *prog = clCreateProgramWithSource(context, 1, srcptr, srcsize, &error);
   //and compile it (after this we could extract the compiled version)
-  error = clBuildProgram(*prog, 0, NULL, "", NULL, NULL);
+  error = clBuildProgram(*prog, 0, NULL, options, NULL, NULL);
 
 // TODO: ERROR_CHECK not DEBUG
 #if DEBUG

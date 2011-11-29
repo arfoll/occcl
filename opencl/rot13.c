@@ -96,7 +96,7 @@ int init_rot13 ()
   const char *srcptr[]={src};
 
   // build CL program
-  error = buildcl (srcptr, &srcsize, &prog);
+  error = buildcl (srcptr, &srcsize, &prog, "");
   // create kernel
   k_rot13 = clCreateKernel(prog, "rot13", &error);
 

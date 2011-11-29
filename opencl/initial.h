@@ -11,7 +11,7 @@
 
 void _initialisecl(int *ws);
 cl_int initialisecl();
-cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog);
+cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog, const char *options);
 const char* errorMessageCL(cl_int error);
 void printDevExt();
 void printDeviceName();

@@ -169,7 +169,7 @@ int init_mandelbrot ()
   const char *srcptr[]={src};
 
   // build CL program
-  error = buildcl (srcptr, &srcsize, &prog);
+  error = buildcl (srcptr, &srcsize, &prog, "");
   // create kernel
   k_mandelbrot = clCreateKernel(prog, "mandelbrot", &error);
 
