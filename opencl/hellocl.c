@@ -18,6 +18,7 @@ static char args_doc[] = "ARG1 ARG2";
 /* The options we understand. */
 static struct argp_option options[] = {
   {"nocharext",'c', 0, 0, "Stop tests that require cl_khr_byte_addressable_store", 0}, 
+  {"mandeliterations", 'i', 0, 0, "Specify the amount of mandelbrot iterations to be done", 0},
   {"verbose",  'v', 0, 0, "Produce verbose output", 0},
   {"quiet",    'q', 0, 0, "Don't produce any output", 0},
   {0, 0, 0, 0, 0, 0}
@@ -26,7 +27,7 @@ static struct argp_option options[] = {
 struct arguments
 {
   char *args[2];                /* arg1 & arg2 */
-  int silent, verbose, nocharext;
+  int silent, verbose, nocharext, mandeliterations;
 };
 
 static error_t parse_opt (int key, char *arg, struct argp_state *state)
@@ -46,6 +47,9 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
     case 'c':
       arguments->nocharext = 1;
       break;
+    case 'i':
+      arguments->mandeliterations = 8;
+      break;
     default:
       return ARGP_ERR_UNKNOWN;
   }
@@ -63,6 +67,7 @@ int main (int argc, char *argv[])
   arguments.silent = 0;
   arguments.verbose = 0;
   arguments.nocharext = 0;
+  arguments.mandeliterations = 25;
 
   argp_parse (&argp, argc, argv, 0, 0, &arguments);
 
@@ -96,7 +101,7 @@ int main (int argc, char *argv[])
     rot13Test();
 
     // MANDELBROT
-    mandelbrotTest();
+    mandelbrotTest(arguments.verbose, arguments.mandeliterations);
   }
 
   return error;

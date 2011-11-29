@@ -34,7 +34,7 @@ int getCorrectDevice(char *requiredExt) {
   }
 }
 
-int mandelbrotTest() {
+int mandelbrotTest(int verbose, int iterations) {
   cl_int error;
   int i;
 
@@ -42,37 +42,56 @@ int mandelbrotTest() {
   // mandelbrot initialisation
   error = init_mandelbrot();
   fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
-  // run mandelbrot CL kernel
+  // run mandelbrot CL kernel against C mandelbrot func
   cl_int width = 100;
+  //make job array with rawdata
   cl_fract *job = (cl_fract*)malloc(sizeof(cl_fract)*5);
-  cl_fract *job2 = (cl_fract*)malloc(sizeof(cl_fract)*4);
-  //cl_fract rawdata[4] = {-25.000000, 17.547363, -0.047774, 0.204189};
-  cl_fract rawdata[4] = {6.000000, 118.243523, -0.267312, 1.142518};
+  cl_fract *job_ori = (cl_fract*)malloc(sizeof(cl_fract)*4);
+  cl_fract rawdata[4] = {-25.000000, 534.086426, -0.271229, 1.159260};
   for (i=0; i < 4; i++) {
-    job[i]  = rawdata[i];
-    job2[i] = rawdata[i];
-  }
-  cl_fract y = job[0]/job[1] - job[2];
-  job[4] = y;
+    job[i] = job_ori[i] = rawdata[i];
+  } 
+  // make char arrays and fill them with blank data
   cl_char *chdata = (cl_char*)malloc(sizeof(cl_char)*width*2);
   cl_char *chdata2 = (cl_char*)malloc(sizeof(cl_char)*width*2);
   for (i=0; i < width*2; i++) {
     chdata[i] = i;
     chdata2[i] = i;
   }
-  error += mandelbrot(chdata, job, width);
-  mandelbrot_c(chdata2, job2, width);
-  fprintf (stdout, "mandelbrot errors = %s\n", errorMessageCL(error));
+
+  // run the mandelbrot 50 times changing job[1] values
   int errors = 0;
-  for (i=0; i < width; i++) {
-    if (chdata[i] != chdata2[i]) {
-      errors++;
-#if PRINT_MANDEL
-      fprintf(stdout, "mandelcl(%d) = %d vs %d\n", i, (int) chdata[i], (int) chdata2[i]);
-#endif
+  int x = 0;
+  if (iterations == 8) {
+    i = iterations;
+  } else {
+    i = -25;
+  }
+  for (; i < iterations+1; i++) {
+    job[0] = job_ori[0] = i;
+    // calculate y for cl function
+    job[4] = job[0]/job[1] - job[2];
+    error += mandelbrot(chdata, job, width);
+    mandelbrot_c(chdata2, job_ori, width);
+
+    // error checking
+    for (x=0; x < width; x++) {
+      if (chdata[x] != chdata2[x]) {
+        errors++;
+        if (verbose) {
+          fprintf(stdout, "mandelcl(%d) = %d vs %d\n", x, (int) chdata[x], (int) chdata2[x]);
+        }
+      }
     }
   }
+
+  // print any possible errors from CL kernel call
+  fprintf (stdout, "mandelbrot CL errors * %d = %s\n", iterations, errorMessageCL(error));
   fprintf (stdout, "mandelbrot calculations with %d errors\n", errors);
+
+  // cleanup
+  free (chdata);
+  free (chdata2);
   return error;
 }
 
