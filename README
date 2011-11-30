@@ -21,6 +21,7 @@ CL_DEVICE_TYPE_GPU:
     Extensions = cl_amd_fp64 cl_khr_gl_sharing cl_amd_device_attribute_query
     Num Compute units = 10
   Nvidia 8600GT
+  Nvidia GT430
   Nvidia ION
     OpenCL 1.1 SDK = Nvidia CUDA 4.0.1
     Extensions = cl_khr_byte_addressable_store cl_khr_icd cl_khr_gl_sharing cl_nv_compiler_options cl_nv_device_attribute_query cl_nv_pragma_unroll
@@ -29,6 +30,19 @@ CL_DEVICE_TYPE_CPU:
   Intel Core i7-2600
 
 RESULTS
+mandelbrot (fp64) benchmark:
+Occam (Intel Q6600 @ 3.0ghz):
+  real	0m29.562s
+  user	0m33.195s
+  sys	0m0.693s
+OpenCL (Intel Q6600 @ 3.0ghz + nvidia GT430):
+  real	0m27.468s
+  user	0m7.143s
+  sys	0m13.032s
+C (Intel Q6600 @ 3.0ghz):
+  real	0m25.348s
+  user	0m6.306s
+  sys	0m0.650s
 
 CONCLUSION
 
