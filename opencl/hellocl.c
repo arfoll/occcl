@@ -74,7 +74,7 @@ int main (int argc, char *argv[])
   // CL initialisation
   error = initialisecl();
   if(error != CL_SUCCESS) {
-    fprintf (stdout, "initialisecl() returned %s", errorMessageCL(error));
+    fprintf (stdout, "initialisecl() returned %s\n", errorMessageCL(error));
     return 1;
   }
 
