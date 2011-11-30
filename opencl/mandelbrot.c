@@ -86,6 +86,7 @@ static cl_context* context;
 static cl_device_id* device;
 static cl_program prog;
 static cl_kernel k_mandelbrot;
+static cl_command_queue cq;
 
 void _mandelbrot (int *w)
 { 
@@ -120,8 +121,10 @@ int mandelbrot (cl_char *data, cl_fract *job, cl_int width) {
            job[0], job[1], job[2], job[3], job[4]);
 #endif
 
-  // create command queue
-  cl_command_queue cq = clCreateCommandQueue(*context, *device, 0, &error);
+#if 0
+  // test initialise data
+  memset (data,'*',200*sizeof(cl_char));
+#endif
 
   // Allocate memory for the kernel to work with
   cl_mem mem1, mem2;
@@ -137,14 +140,28 @@ int mandelbrot (cl_char *data, cl_fract *job, cl_int width) {
   size_t worksize = width;
   error = clEnqueueNDRangeKernel(cq, k_mandelbrot, 1, NULL, &worksize, 0, 0, 0, 0);
   // Read the result back into data
-  error = clEnqueueReadBuffer(cq, mem1, CL_FALSE, 0, (size_t) (width*2), data, 0, 0, 0);
+  error = clEnqueueReadBuffer(cq, mem1, CL_TRUE, 0, (size_t) (width*2), data, 0, 0, 0);
 
-  // cleanup and wait for release of cq
-  error = clFinish(cq);
+  // cleanup
+  error = clFlush(cq);
+//  error = clFinish(cq);
   clReleaseMemObject(mem1);
   clReleaseMemObject(mem2);
+
+  if (error) {
+    fprintf (stderr, "ERROR! : %s\n", errorMessageCL(error));
+    exit(10);
+  }
+
+#if 0
+  int i = 0;
+  for (i=0; i < 200; i++)
+    if (i%2) {
+      fprintf (stderr, "%c", data[i]);
+    }
+  fprintf(stderr, "\n");
+#endif
   
-  // return the ciphertext 
   return error;
 }
 
@@ -172,6 +189,12 @@ int init_mandelbrot ()
   error = buildcl (srcptr, &srcsize, &prog, "-cl-opt-disable");
   // create kernel
   k_mandelbrot = clCreateKernel(prog, "mandelbrot", &error);
+
+    // create command queue
+  cq = clCreateCommandQueue(*context, *device, 0, &error);
+  if (error) {
+    fprintf (stderr, "ERROR at CQ create! : %s\n", errorMessageCL(error));
+  }
 
   if (!error)
     mandelbrot_init = 1;
