@@ -7,7 +7,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <complex.h>
 #include <math.h>
 #include <stdlib.h>
 
@@ -27,4 +26,4 @@ void _initmandelbrot (int *w);
 int mandelbrot (cl_char *data, cl_fract *job, cl_int width);
 void mandelbrot_c (cl_char *data, cl_fract *job, cl_int width);
 int init_mandelbrot ();
-
+cl_int print_mandelbrot_kernel_info ();

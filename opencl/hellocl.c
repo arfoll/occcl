@@ -112,5 +112,8 @@ int main (int argc, char *argv[])
     mandelbrotTest(arguments.verbose, arguments.mandeliterations);
   }
 
+  // cleaup cl
+  destroycl();
+
   return error;
 }

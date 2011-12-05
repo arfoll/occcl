@@ -42,6 +42,8 @@ int mandelbrotTest(int verbose, int iterations) {
   // mandelbrot initialisation
   error = init_mandelbrot();
   fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
+  // print some device info
+  print_mandelbrot_kernel_info();
   // run mandelbrot CL kernel against C mandelbrot func
   cl_int width = 100;
   //make job array with rawdata

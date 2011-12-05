@@ -29,6 +29,7 @@ static cl_context* context;
 static cl_device_id* device;
 static cl_program prog;
 static cl_kernel k_rot13;
+static cl_command_queue *cq;
 
 void _rot13 (int *w)
 { 
@@ -52,13 +53,10 @@ int rot13 (char* plaintext, char* ciphertext) {
   }
 #endif
 
-  // create command queue
-  cl_command_queue cq = clCreateCommandQueue(*context, *device, 0, &error);
-
   // Allocate memory for the kernel to work with
   cl_mem mem1, mem2;
-  mem1=clCreateBuffer(*context, CL_MEM_READ_ONLY, worksize, NULL, &error);
-  mem2=clCreateBuffer(*context, CL_MEM_WRITE_ONLY, worksize, NULL, &error);
+  mem1 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_char) * worksize, plaintext, &error);
+  mem2 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_char) * worksize, NULL, &error);
   
   // get a handle and map parameters for the kernel
   clSetKernelArg(k_rot13, 0, sizeof(mem1), &mem1);
@@ -69,13 +67,16 @@ int rot13 (char* plaintext, char* ciphertext) {
   ciphertext[worksize]=0;
 
   // Send input data to OpenCL (async, don't alter the buffer!)
-  error=clEnqueueWriteBuffer(cq, mem1, CL_FALSE, 0, worksize, plaintext, 0, NULL, NULL);
+//  error=clEnqueueWriteBuffer(*cq, mem1, CL_FALSE, 0, worksize, plaintext, 0, NULL, NULL);
   // Perform the operation
-  error=clEnqueueNDRangeKernel(cq, k_rot13, 1, NULL, &worksize, &worksize, 0, NULL, NULL);
+  error = clEnqueueNDRangeKernel(*cq, k_rot13, 1, NULL, &worksize, &worksize, 0, NULL, NULL);
   // Read the result back into ciphertext 
-  error=clEnqueueReadBuffer(cq, mem2, CL_FALSE, 0, worksize, ciphertext, 0, NULL, NULL);
+  error = clEnqueueReadBuffer(*cq, mem2, CL_TRUE, 0, worksize, ciphertext, 0, NULL, NULL);
+
   // Await completion of all the above
-  error=clFinish(cq);
+  error = clFlush(*cq);
+  clReleaseMemObject(mem1);
+  clReleaseMemObject(mem2);
   
   // return the ciphertext 
   return error;
@@ -99,6 +100,8 @@ int init_rot13 ()
   error = buildcl (srcptr, &srcsize, &prog, "");
   // create kernel
   k_rot13 = clCreateKernel(prog, "rot13", &error);
+  // get the shared CQ
+  cq = get_command_queue();
 
   // we are initialised
   if (!error)

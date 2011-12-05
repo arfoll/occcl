@@ -17,6 +17,7 @@ static cl_context context;
 static cl_device_id *device;
 static cl_uint numdevices;
 static cl_uint currentdevice = 0;
+static cl_command_queue cq;
 cl_device_id devices[NUM_DEVICES];
 
 /**
@@ -25,6 +26,14 @@ cl_device_id devices[NUM_DEVICES];
 void _initialisecl(int *ws)
 {
   initialisecl();
+}
+
+/**
+ * Occam-pi call for destorycl
+ */
+void _destroycl(int *ws)
+{
+  destroycl();
 }
 
 /**
@@ -64,11 +73,25 @@ cl_int initialisecl()
       fprintf(stderr, "Error creating context: %s", errorMessageCL(error));
     }
 
+    //Create command queue
+    cq = clCreateCommandQueue(context, *device, 0, &error);
+    if (error) {
+      fprintf (stderr, "ERROR at CQ create! : %s\n", errorMessageCL(error));
+    }
+
     return error;
 #if ERROR_CHECK
   }
   return CL_SUCCESS;
 #endif
+}
+
+/**
+ *
+ */
+void destroycl()
+{
+  clReleaseCommandQueue(cq);
 }
 
 /**
@@ -161,6 +184,14 @@ cl_context* get_cl_context()
 cl_device_id* get_cl_device()
 {
   return device;
+}
+
+/**
+ * Return the CommandQueue
+ */
+cl_command_queue* get_command_queue()
+{
+  return &cq;
 }
 
 /**

@@ -16,10 +16,11 @@ const char sin_cl[] = "                             \
 ";
 
 static int sin_init = 0;
-static cl_context* context;
-static cl_device_id* device;
+static cl_context *context;
+static cl_device_id *device;
 static cl_program prog;
 static cl_kernel k_sin;
+static cl_command_queue *cq;
 
 int clsin (cl_float *data) {
   cl_int error;
@@ -31,23 +32,19 @@ int clsin (cl_float *data) {
   }
 #endif
 
-  // create command queue
-  cl_command_queue cq = clCreateCommandQueue(*context, *device, 0, &error);
-
   // Setup the input
   buffer = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*10240, data, &error);
 
   // Execute the kernel
   error = clSetKernelArg(k_sin, 0, sizeof(buffer), &buffer);
   size_t global_dimensions[] = {10240,0,0};
-  error = clEnqueueNDRangeKernel(cq, k_sin, 1, NULL, global_dimensions, NULL, 0, NULL, NULL);
+  error = clEnqueueNDRangeKernel(*cq, k_sin, 1, NULL, global_dimensions, NULL, 0, NULL, NULL);
 
   // Read back the results
-  error = clEnqueueReadBuffer(cq, buffer, CL_TRUE, 0, sizeof(cl_float)*10240, data, 0, NULL, NULL);
+  error = clEnqueueReadBuffer(*cq, buffer, CL_TRUE, 0, sizeof(cl_float)*10240, data, 0, NULL, NULL);
 
   // Clean up
   clReleaseMemObject(buffer);
-  clReleaseCommandQueue(cq);
 
   // return the ciphertext 
   return error;
@@ -71,6 +68,8 @@ int init_sin ()
   error = buildcl (srcptr, &srcsize, &prog, "");
   // create kernel
   k_sin = clCreateKernel(prog, "sin_cl", &error);
+  // get the shared CQ
+  cq = get_command_queue();
 
   if (!error)
     sin_init = 1;

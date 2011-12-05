@@ -10,11 +10,11 @@
 #define CLMANDEL 1
 
 static int mandelbrot_init = 0;
-static cl_context* context;
-static cl_device_id* device;
+static cl_context *context;
+static cl_device_id *device;
 static cl_program prog;
 static cl_kernel k_mandelbrot;
-static cl_command_queue cq;
+static cl_command_queue *cq;
 
 cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
 
@@ -98,13 +98,12 @@ int mandelbrot (cl_char *data, cl_fract *job, cl_int width) {
 
   // Perform the operation (width is 100 in this example)
   size_t worksize = width;
-  error = clEnqueueNDRangeKernel(cq, k_mandelbrot, 1, NULL, &worksize, 0, 0, 0, 0);
+  error = clEnqueueNDRangeKernel(*cq, k_mandelbrot, 1, NULL, &worksize, 0, 0, 0, 0);
   // Read the result back into data
-  error = clEnqueueReadBuffer(cq, mem1, CL_TRUE, 0, (size_t) (width*2), data, 0, 0, 0);
+  error = clEnqueueReadBuffer(*cq, mem1, CL_TRUE, 0, (size_t) (width*2), data, 0, 0, 0);
 
   // cleanup
-  error = clFlush(cq);
-//  error = clFinish(cq);
+  error = clFlush(*cq);
   clReleaseMemObject(mem1);
   clReleaseMemObject(mem2);
 
@@ -122,6 +121,23 @@ int mandelbrot (cl_char *data, cl_fract *job, cl_int width) {
   fprintf(stderr, "\n");
 #endif
   
+  return error;
+}
+
+cl_int print_mandelbrot_kernel_info ()
+{
+  cl_int error = CL_SUCCESS;
+  if (mandelbrot_init) {
+    size_t grp_size;
+    error = clGetKernelWorkGroupInfo(k_mandelbrot, *device, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &grp_size, NULL);
+    cl_ulong local_mem_size;
+    error = clGetKernelWorkGroupInfo(k_mandelbrot, *device, CL_KERNEL_LOCAL_MEM_SIZE, sizeof(cl_ulong), &local_mem_size, NULL);
+#if 0
+    size_t[3] build_grp_size;
+    error = clGetKernelWorkGroupInfo(k_mandelbrot, *device, CL_KERNEL_COMPILE_WORK_GROUP_SIZE, sizeof(size_t)*3, &build_grp_size, NULL);
+    fprintf (stdout, "Group Size is %lu. Local Mem Size is %lu. Compile Group Size is %lu, %lu, %lu\n", (unsigned long) grp_size, (unsigned long) local_mem_size, build_grp_size[0], build_grp_size[1], build_grp_size[2]);
+#endif
+  }
   return error;
 }
 
@@ -149,12 +165,8 @@ int init_mandelbrot ()
   error = buildcl (srcptr, &srcsize, &prog, "-cl-opt-disable");
   // create kernel
   k_mandelbrot = clCreateKernel(prog, "mandelbrot", &error);
-
-    // create command queue
-  cq = clCreateCommandQueue(*context, *device, 0, &error);
-  if (error) {
-    fprintf (stderr, "ERROR at CQ create! : %s\n", errorMessageCL(error));
-  }
+  // get the shared CQ
+  cq = get_command_queue();
 
   if (!error)
     mandelbrot_init = 1;

@@ -16,32 +16,43 @@ __kernel void modulo (__global int *num, __global float *mod, __global float *am
 }";
 
 static int modulo_init = 0;
-static cl_context* context;
-static cl_device_id* device;
+static cl_context *context;
+static cl_device_id *device;
 static cl_program prog;
 static cl_kernel k_modulo;
+static cl_command_queue *cq;
 
 int modulo (cl_int *num, cl_float *mod, cl_float *amount)
 {
   cl_int error;
   size_t worksize = 1;
-  cl_command_queue cq = clCreateCommandQueue(*context, *device, 0, &error);
-  cl_mem mem1, mem2, mem3;
-  mem1=clCreateBuffer(*context, CL_MEM_READ_ONLY, sizeof(cl_int), NULL, &error);
-  mem2=clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_float), NULL, &error);
-  mem3=clCreateBuffer(*context, CL_MEM_READ_ONLY, sizeof(cl_float), NULL, &error);
 
+  // Assign memory in read/write only using old fashioned buffer creation + write
+  cl_mem mem1, mem2, mem3;
+  mem1 = clCreateBuffer(*context, CL_MEM_READ_ONLY, sizeof(cl_int), NULL, &error);
+  mem2 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_float), NULL, &error);
+  mem3 = clCreateBuffer(*context, CL_MEM_READ_ONLY, sizeof(cl_float), NULL, &error);
+
+  // Set kernel arguments
   clSetKernelArg(k_modulo, 0, sizeof(mem1), &mem1);
   clSetKernelArg(k_modulo, 1, sizeof(mem2), &mem2);
   clSetKernelArg(k_modulo, 2, sizeof(mem3), &mem3);
 
-  error=clEnqueueWriteBuffer(cq, mem1, CL_FALSE, 0, sizeof(cl_int), num, 0, NULL, NULL);
-  error=clEnqueueWriteBuffer(cq, mem3, CL_FALSE, 0, sizeof(cl_float), amount, 0, NULL, NULL);
+  // write the arguments to memory
+  error = clEnqueueWriteBuffer(*cq, mem1, CL_FALSE, 0, sizeof(cl_int), num, 0, NULL, NULL);
+  error = clEnqueueWriteBuffer(*cq, mem3, CL_FALSE, 0, sizeof(cl_float), amount, 0, NULL, NULL);
 
-  error=clEnqueueNDRangeKernel(cq, k_modulo, 1, NULL, &worksize, &worksize, 0, NULL, NULL);
+  // send kernel to work
+  error = clEnqueueNDRangeKernel(*cq, k_modulo, 1, NULL, &worksize, &worksize, 0, NULL, NULL);
 
-  error=clEnqueueReadBuffer(cq, mem2, CL_FALSE, 0,  sizeof(cl_float), mod, 0, NULL, NULL);
-  error=clFinish(cq);
+  // wait on buffer rea
+  error = clEnqueueReadBuffer(*cq, mem2, CL_TRUE, 0,  sizeof(cl_float), mod, 0, NULL, NULL);
+
+  // flush + cleanup
+  error = clFlush(*cq);
+  clReleaseMemObject(mem1);
+  clReleaseMemObject(mem2);
+  clReleaseMemObject(mem3);
 
   return error;
 }
@@ -61,9 +72,11 @@ int init_modulo()
   const char *srcptr[]={src};
 
   // build CL program
-  error = buildcl (srcptr, &srcsize, &prog, "-cl-opt-disable");
+  error = buildcl (srcptr, &srcsize, &prog, "");
   // create kernel
   k_modulo = clCreateKernel(prog, "modulo", &error);
+  // get the shared CQ
+  cq = get_command_queue();
 
   if (!error)
     modulo_init = 1;
