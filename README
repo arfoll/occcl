@@ -43,6 +43,9 @@ C (Intel Q6600 @ 3.0ghz):
   real	0m25.348s
   user	0m6.306s
   sys	0m0.650s
+Fred-lab-PC-Q9400 @ 2.66GHz
+  time = 22505 ms  (800 iters, 128 workers)
+
 
 CONCLUSION
 
