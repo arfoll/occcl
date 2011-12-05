@@ -89,9 +89,13 @@ cl_int initialisecl()
 /**
  *
  */
-void destroycl()
+cl_int destroycl()
 {
-  clReleaseCommandQueue(cq);
+  cl_int error;
+
+  error = clReleaseCommandQueue(cq);
+
+  return error;
 }
 
 /**
