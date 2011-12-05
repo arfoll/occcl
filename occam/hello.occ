@@ -5,6 +5,7 @@
 #PRAGMA EXTERNAL "PROC C.mandelbrot (VAL []BYTE data, VAL []REAL64 job, VAL INT width) = 0"
 #PRAGMA EXTERNAL "PROC C.initmandelbrot () = 0"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
+#PRAGMA EXTERNAL "PROC C.destroycl () = 0"
 
 DATA TYPE COMPLEX64
   RECORD
@@ -153,5 +154,6 @@ PROC hello (CHAN BYTE out!)
 --        rot13 ("opencl is greaaat", chans[1]!)
 --        rot13 ("opencl is monkeyy", chans[2]!)
 --        rot13 ("opencl is doucheb", chans[3]!)
+    C.destroycl ()
 :
 
