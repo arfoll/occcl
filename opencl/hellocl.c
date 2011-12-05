@@ -83,9 +83,6 @@ int main (int argc, char *argv[])
   printDeviceName();
   printDevExt();
 
-  // MODULO PRECISION
-  moduloTest();
-
   // SIN
   sinTest();
 
