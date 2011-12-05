@@ -162,7 +162,7 @@ int init_mandelbrot ()
   const char *srcptr[]={src};
 
   // build CL program
-  error = buildcl (srcptr, &srcsize, &prog, "-cl-opt-disable");
+  error = buildcl (srcptr, &srcsize, &prog, "");
   // create kernel
   k_mandelbrot = clCreateKernel(prog, "mandelbrot", &error);
   // get the shared CQ
