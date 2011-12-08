@@ -55,12 +55,13 @@ void mandelbrot_c (cl_char **data, cl_fract *job, cl_int length)
   }
 }
 #else
-void mandelbrot_c (cl_char **data, cl_fract *job, cl_int length)
+void mandelbrot_c (cl_char *data, cl_fract *job, cl_int length)
 {
   int j, i;
   for (j = 0; j < length; j++) {
     for (i = 0; i < 200; i++) {
-      data[j][i] = 65;
+      *data = 65;
+      data++;
     }
   }
 }
@@ -77,7 +78,7 @@ void _mandelbrot (int *w)
 #else
   // due to the [][] array w[1] is 50 and w[2] is 200
   cl_char *data = (cl_char*) w[0];
-  mandelbrot_c (output, (cl_fract*) (w[3]), (cl_int) (w[5]));
+  mandelbrot_c (data, (cl_fract*) (w[3]), (cl_int) (w[5]));
 #endif
 }
 
