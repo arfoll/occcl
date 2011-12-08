@@ -18,7 +18,7 @@
 #define PRINT_MANDEL 0
 
 int getCorrectDevice(char *requiredExt) {
-  int devicenum = 0;
+  int devicenum = 1;
   while (!extSupported(requiredExt) && devicenum < getMaxDevices()) {
     nextDevice();
     fprintf (stdout, "========= CHANGED CL DEVICE =========\n");
@@ -26,10 +26,11 @@ int getCorrectDevice(char *requiredExt) {
     printDevExt();
     devicenum++;
   }
-  return CL_SUCCESS;
 
-  if (devicenum > getMaxDevices()) {
-    fprintf (stdout, "no devices on this system support the required extension\n");
+  if (extSupported(requiredExt)) {
+    return CL_SUCCESS;
+  } else {
+    fprintf (stdout, "no devices on this system support %s, which is a required extension\n", requiredExt);
     return 1;
   }
 }

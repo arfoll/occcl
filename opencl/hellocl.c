@@ -89,16 +89,14 @@ int main (int argc, char *argv[])
   // check for --nocharext
   if (!arguments.nocharext) {
     // Check device supports extensions we need for rot13 & mandelbrot
-    char *khr_byte = "cl_khr_byte_addressable_store";
-    if (getCorrectDevice(khr_byte)) {
+    if (getCorrectDevice("cl_khr_byte_addressable_store")) {
       return 2;
     }
 
     // ROT13
     rot13Test();
 
-    char *khr_fp64 = "cl_khr_fp64";
-    if (getCorrectDevice(khr_fp64)) {
+    if (getCorrectDevice("cl_khr_fp64")) {
       return 3;
     }
 
