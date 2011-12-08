@@ -9,5 +9,5 @@
 #include <stdio.h>
 
 void _printfjob (int *w);
-void printf_job (float *job, int length);
-
+void _printfreal (int *w);
+void _printfint (int *w);

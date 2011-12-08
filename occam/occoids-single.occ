@@ -1,0 +1,1088 @@
+--** Boids implementation in occam-pi.
+
+#INCLUDE "course.module"
+#INCLUDE "sdlraster.module"
+#INCLUDE "maths.module"
+#INCLUDE "rastergraphics.module"
+#PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
+#PRAGMA EXTERNAL "PROC C.destroycl () = 0"
+#PRAGMA EXTERNAL "PROC C.printfreal (VAL REAL64 val) = 0"
+#PRAGMA EXTERNAL "PROC C.printfint (VAL INT val) = 0"
+#INCLUDE "rastercapture.inc"
+
+--{{{  constants
+VAL INT DIRECTIONS IS 8:
+VAL [DIRECTIONS + 1][2]INT OFFSETS IS [[-1, -1], [0, -1], [1, -1],
+                                       [-1, 0],           [1, 0],
+                                       [-1, 1],  [0, 1],  [1, 1],  [0, 0]]:
+VAL INT WIDTH.LOCATIONS IS 8:
+VAL INT HEIGHT.LOCATIONS IS 6:
+VAL INT NUM.LOCATIONS IS WIDTH.LOCATIONS * HEIGHT.LOCATIONS:
+VAL INT PIXEL.SCALE IS 768 / HEIGHT.LOCATIONS:
+VAL REAL32 MAX.INIT.VELOCITY IS 0.1:
+VAL REAL32 MIN.CYLINDER.RADIUS IS 0.1:
+VAL REAL32 MAX.CYLINDER.RADIUS IS 0.3:
+VAL INT INITIAL.BOIDS IS 1000:
+VAL INT INITIAL.CYLINDERS IS (NUM.LOCATIONS * 2) / 5:
+VAL REAL32 MEAN.VELOCITY.FRACTION IS 8.0:
+VAL REAL32 CENTRE.OF.MASS.FRACTION IS 45.0:
+VAL REAL32 REPULSION.DISTANCE IS 0.06:
+VAL REAL32 REPULSION.FRACTION IS 4.0:
+VAL REAL32 SOFT.THRESHOLD IS 0.05:
+VAL REAL32 OBSTACLE.FRACTION IS 8.0:
+VAL REAL32 SPEED.LIMIT IS 0.03:
+--* How far you can see -- this can't be greater than 1.0.
+VAL REAL32 VISION.RADIUS IS 0.25:
+--* Your field of view, in degrees.
+VAL REAL32 VISION.ANGLE IS 200.0:
+VAL REAL32 VISION.MAX.ANGULAR.DIFF IS ((VISION.ANGLE / 2.0) * Pi) / 180.0:
+VAL INT CYCLE.TIME IS 20000:
+VAL INT DISPLAY.TIME.CYCLES IS 50:
+VAL INT SCREEN.UPDATE.TIME IS 1000000 / 20:
+VAL REAL32 SMOOTH.ACCELERATION IS 5.0:
+VAL REAL32 EPSILON IS 1.0E-8:
+--}}}
+
+--{{{  externals
+#PRAGMA EXTERNAL "PROC C.ccsp.get.process.count (INT count) = 0"
+--}}}
+
+--{{{  data types and protocols
+--{{{  vectors
+DATA TYPE VECTOR
+  RECORD
+    REAL32 x, y:
+:
+
+VECTOR INLINE FUNCTION "+" (VAL VECTOR a, b) IS [a[x] + b[x], a[y] + b[y]]:
+VECTOR INLINE FUNCTION "-" (VAL VECTOR a, b) IS [a[x] - b[x], a[y] - b[y]]:
+VECTOR INLINE FUNCTION "**" (VAL VECTOR a, VAL REAL32 b) IS [a[x] * b, a[y] * b]:
+VECTOR INLINE FUNCTION "/" (VAL VECTOR a, VAL REAL32 b) IS [a[x] / b, a[y] / b]:
+
+--* Compute the square of the magnitude of the vector.
+REAL32 INLINE FUNCTION magnitude2 (VAL VECTOR v) IS (v[x] * v[x]) + (v[y] * v[y]):
+
+PROC out.vector (VAL VECTOR v, CHAN BYTE out!)
+  SEQ
+    out ! '('
+    out.real32 (v[x], 0, 0, out!)
+    out ! ','
+    out.real32 (v[y], 0, 0, out!)
+    out ! ')'
+:
+--}}}
+--{{{  agent info
+--*{{{ AT agent types
+VAL INT AT.BOID IS 1:
+VAL INT AT.CYLINDER IS 2:
+--*}}}
+
+DATA TYPE AGENT.INFO
+  RECORD
+    INT local.id:
+    INT type:
+    VECTOR position, velocity:
+    REAL32 radius:
+    INT colour:
+:
+
+--{{{  opencl call
+-- pack the data as INT[3], REAL32[7]
+-- local.id, type, colour
+-- position.x, position.y, velocity.x, velocity.y, radius, accel.x, accel.y
+#PRAGMA EXTERNAL "PROC C.occoids (VAL INT size, VAL []AGENT.INFO ag) = 0"
+--}}}
+
+--{{{  PROC update.info
+--* Update the fields in AGENT.INFO that aren't managed by the grid.
+PROC update.info (AGENT.INFO dest, VAL AGENT.INFO src)
+  SEQ
+    dest[type] := src[type]
+    dest[radius] := src[radius]
+    dest[colour] := src[colour]
+:
+--}}}
+--}}}
+--{{{  viewers
+PROTOCOL VIEWER.REQ
+  CASE
+    borrow.info                     --* Replies [@ref lend.info].
+    return.info; MOBILE []AGENT.INFO
+    update                          --* Replies [@ref updated].
+:
+
+PROTOCOL VIEWER.RESP
+  CASE
+    lend.info; MOBILE []AGENT.INFO  --* Replies [@ref return.info].
+    updated
+:
+
+CHAN TYPE VIEWER.CT
+  MOBILE RECORD
+    CHAN VIEWER.REQ req?:
+    CHAN VIEWER.RESP resp!:
+:
+--}}}
+--{{{  agents
+PROTOCOL AGENT.REQ
+  CASE
+    set.info; AGENT.INFO
+    look; MOBILE []AGENT.INFO       --* Replies [@ref seen].
+    move; VECTOR
+:
+
+PROTOCOL AGENT.RESP
+  CASE
+    seen; MOBILE []AGENT.INFO
+:
+
+CHAN TYPE AGENT.CT
+  MOBILE RECORD
+    CHAN AGENT.REQ req?:
+    CHAN AGENT.RESP resp!:
+:
+--}}}
+--{{{  locations
+CHAN TYPE LOC.CT:
+
+PROTOCOL LOC.REQ
+  CASE
+    set.info; INT; AGENT.INFO
+    enter; AGENT.INFO               --* Replies [@ref stay.here] or [@ref go.there].
+    move; INT; VECTOR               --* Replies [@ref stay.here] or [@ref go.there].
+    borrow.info                     --* Replies [@ref lend.info].
+    return.info; MOBILE []AGENT.INFO
+:
+
+PROTOCOL LOC.RESP
+  CASE
+    stay.here; INT; VECTOR; SHARED VIEWER.CT!
+    go.there; SHARED LOC.CT!; AGENT.INFO
+    lend.info; MOBILE []AGENT.INFO  --* Replies [@ref return.info].
+:
+
+CHAN TYPE LOC.CT
+  MOBILE RECORD
+    CHAN LOC.REQ req?:
+    CHAN LOC.RESP resp!:
+:
+--}}}
+--}}}
+
+PROC main (SHARED CHAN BYTE err!)
+  --{{{  FUNCTION dir.value
+  --* Figure out what direction we should move in given a coordinate.
+  -- Between -1 and 1, this'll return 0; else it'll return the sign of the
+  -- input.
+  INT FUNCTION dir.value (VAL REAL32 r)
+    INT d:
+    VALOF
+      IF
+        r < 0.0
+          d := -1
+        r >= 1.0
+          d := 1
+        TRUE
+          d := 0
+      RESULT d
+  :
+  --}}}
+
+  --{{{  FUNCTION random.real32
+  --* Generate a random [@code REAL32].
+  REAL32, INT FUNCTION random.real32 (VAL REAL32 range, VAL INT seed)
+    REAL32 result:
+    INT value, newseed:
+    VALOF
+      SEQ
+        value, newseed := random (MOSTPOS INT, seed)
+        result := (range * (REAL32 ROUND value)) / (REAL32 ROUND (MOSTPOS INT))
+      RESULT result, newseed
+  :
+  --}}}
+
+  --{{{  PROC random.vector
+  --* Generate a random vector.
+  PROC random.vector (VAL REAL32 mag, INT seed, RESULT VECTOR vector)
+    SEQ
+      vector[x], seed := random.real32 (mag, seed)
+      vector[y], seed := random.real32 (mag, seed)
+  :
+  --}}}
+
+  --{{{  FUNCTION min
+  --* Return the lower of two integers.
+  INT FUNCTION min (VAL INT a, b)
+    INT r:
+    VALOF
+      IF
+        a < b
+          r := a
+        TRUE
+          r := b
+      RESULT r
+  :
+  --}}}
+
+  --{{{  PROC resize.array
+  --* Resize an array, keeping the contents intact.
+  PROC resize.array (MOBILE []AGENT.INFO array, VAL INT new.size)
+    IF
+      (SIZE array) = new.size
+        SKIP
+      TRUE
+        RESIZE.MOBILE.ARRAY.1D (array, new.size)
+        -- INITIAL MOBILE []AGENT.INFO new.array IS MOBILE [new.size]AGENT.INFO:
+        -- SEQ
+        --   SEQ i = 0 FOR min (SIZE array, new.size)
+        --     new.array[i] := array[i]
+        --   array := new.array
+  :
+  --}}}
+
+  --{{{  PROC viewer
+  --* Process that collects lists of agents from the surrounding cells, merges
+  -- them, and serves them to agents.
+  PROC viewer (VIEWER.CT? svr, MOBILE []SHARED LOC.CT! in.vision)
+    -- XXX: Duplicated here because occ21's usage checker can't tell it's a constant.
+    VAL [DIRECTIONS + 1][2]INT OFFSETS IS [[-1, -1], [0, -1], [1, -1],
+                                           [-1, 0],           [1, 0],
+                                           [-1, 1],  [0, 1],  [1, 1],  [0, 0]]:
+    INITIAL MOBILE []AGENT.INFO infos IS MOBILE [1]AGENT.INFO:
+    WHILE TRUE
+      svr[req] ? CASE
+        update
+          --{{{  update
+          INITIAL INT used IS 0:
+          SEQ
+            --{{{  collect info from locations
+            SEQ dir = 0 FOR SIZE in.vision
+              CLAIM in.vision[dir]
+                MOBILE []AGENT.INFO neighbour.infos:
+                SEQ
+                  in.vision[dir][req] ! borrow.info
+                  in.vision[dir][resp] ? CASE lend.info; neighbour.infos
+                  --{{{  make sure infos is big enough
+                  VAL INT need.size IS used + (SIZE neighbour.infos):
+                  IF
+                    (SIZE infos) < need.size
+                      resize.array (infos, need.size)
+                    TRUE
+                      SKIP
+                  --}}}
+                  --{{{  copy info
+                  VAL VECTOR offset IS [REAL32 ROUND OFFSETS[dir][0], REAL32 ROUND OFFSETS[dir][1]]:
+                  SEQ i = 0 FOR SIZE neighbour.infos
+                    SEQ
+                      infos[used + i] := neighbour.infos[i]
+                      --{{{  adjust position based on the relative direction
+                      infos[used + i][position] := infos[used + i][position] + offset
+                      --}}}
+                  used := used + (SIZE neighbour.infos)
+                  --}}}
+                  in.vision[dir][req] ! return.info; neighbour.infos
+            --}}}
+            --{{{  shrink array if it's now too large
+            resize.array (infos, used)
+            --}}}
+            svr[resp] ! updated
+          --}}}
+        borrow.info
+          --{{{  borrow.info
+          SEQ
+            svr[resp] ! lend.info; infos
+            svr[req] ? CASE return.info; infos
+          --}}}
+  :
+  --}}}
+
+  --{{{  PROC updater
+  --* Update a viewer in phase 2 of the barrier.
+  PROC updater (SHARED VIEWER.CT! cli, MOBILE BARRIER bar)
+    WHILE TRUE
+      SEQ
+        SYNC bar -- Phase 1
+        SYNC bar -- Phase 2
+        CLAIM cli
+          SEQ
+            cli[req] ! update
+            cli[resp] ? CASE updated
+  :
+  --}}}
+
+  --{{{  PROC location
+  --* A location on the grid.
+  PROC location (LOC.CT? svr, SHARED LOC.CT! cli, MOBILE []SHARED LOC.CT! neighbours,
+                 CHAN RASTER graphics.in?, graphics.out!, CHAN MOBILE BARRIER cbar?,
+                 VAL INT pos.x, pos.y)
+    INITIAL MOBILE []AGENT.INFO infos IS MOBILE [1]AGENT.INFO:
+    INITIAL INT num.agents IS 0:
+    INITIAL INT id.counter IS (10000 * pos.x) + (100 * pos.y):
+
+    SHARED VIEWER.CT! viewer.cli:
+
+    --{{{  PROC report
+    PROC report (CHAN BYTE out!)
+      SEQ
+        out.string ("Location(", 0, out!)
+        out.int (pos.x, 0, out!)
+        out ! ','
+        out.int (pos.y, 0, out!)
+        out.string ("): ", 0, out!)
+    :
+    --}}}
+
+    --{{{  PROC remove.agent
+    PROC remove.agent (VAL INT i)
+      SEQ
+        IF
+          i = (num.agents - 1)
+            SKIP
+          TRUE
+            --{{{  move the last agent down to this position
+            infos[i] := infos[num.agents - 1]
+            --}}}
+        num.agents := num.agents - 1
+    :
+    --}}}
+
+    --{{{  PROC handle.agent.movement
+    PROC handle.agent.movement (VAL INT n)
+      INITIAL AGENT.INFO this.info IS infos[n]:
+      INT dx, dy:
+      SEQ
+        dx := dir.value (this.info[position][x])
+        dy := dir.value (this.info[position][y])
+        IF
+          (dx <> 0) OR (dy <> 0)
+            --{{{  agent moves to a new location
+            IF dir = 0 FOR DIRECTIONS
+              (OFFSETS[dir][0] = dx) AND (OFFSETS[dir][1] = dy)
+                SEQ
+                  --{{{  compute position in destination cell
+                  this.info[position][x] := this.info[position][x] - (REAL32 ROUND OFFSETS[dir][0])
+                  this.info[position][y] := this.info[position][y] - (REAL32 ROUND OFFSETS[dir][1])
+                  --}}}
+                  svr[resp] ! go.there; neighbours[dir]; this.info
+                  remove.agent (n)
+            --}}}
+          TRUE
+            svr[resp] ! stay.here; this.info[local.id]; this.info[position]; viewer.cli
+    :
+    --}}}
+
+    SEQ
+      --{{{  start viewer
+      VIEWER.CT? viewer.svr:
+      INITIAL MOBILE []SHARED LOC.CT! in.vision IS MOBILE [DIRECTIONS + 1]SHARED LOC.CT!:
+      SEQ
+        viewer.cli, viewer.svr := MOBILE VIEWER.CT
+        SEQ i = 0 FOR DIRECTIONS
+          in.vision[i] := CLONE neighbours[i]
+        in.vision[DIRECTIONS] := cli
+        FORK viewer (viewer.svr, in.vision)
+        MOBILE BARRIER bar:
+        SEQ
+          cbar ? bar
+          FORK updater (viewer.cli, bar)
+      --}}}
+      WHILE TRUE
+        ALT
+          svr[req] ? CASE
+            INT id:
+            AGENT.INFO info:
+            set.info; id; info
+              --{{{  set.info
+              IF n = 0 FOR num.agents
+                infos[n][local.id] = id
+                  update.info (infos[n], info)
+              --}}}
+            AGENT.INFO info:
+            enter; info
+              --{{{  enter
+              SEQ
+                --{{{  make sure infos is big enough
+                IF
+                  (SIZE infos) < (num.agents + 1)
+                    resize.array (infos, 2 * (num.agents + 1))
+                  TRUE
+                    SKIP
+                --}}}
+                --{{{  allocate a new local id
+                info[local.id] := id.counter
+                id.counter := id.counter PLUS 1
+                --}}}
+                infos[num.agents] := info
+                num.agents := num.agents + 1
+
+                -- We must treat the agent as moving in case we need to hand it
+                -- off to another location immediately.
+                INITIAL INT n IS num.agents - 1:
+                handle.agent.movement (n)
+              --}}}
+            INT id:
+            VECTOR delta:
+            move; id; delta
+              --{{{  move
+              INT n:
+              SEQ
+                --{{{  find the agent
+                IF i = 0 FOR num.agents
+                  infos[i][local.id] = id
+                    n := i
+                --}}}
+                infos[n][position] := infos[n][position] + delta
+                infos[n][velocity] := delta
+                handle.agent.movement (n)
+              --}}}
+            borrow.info
+              --{{{  borrow.info
+              SEQ
+                --{{{  trim infos if it's got too long
+                resize.array (infos, num.agents)
+                --}}}
+                svr[resp] ! lend.info; infos
+                svr[req] ? CASE return.info; infos
+              --}}}
+          --{{{  graphics update
+          RASTER r:
+          graphics.in ? r
+            VAL INT by IS pos.y * PIXEL.SCALE:
+            VAL INT bx IS pos.x * PIXEL.SCALE:
+            VAL REAL32 PSR IS REAL32 ROUND PIXEL.SCALE:
+            SEQ
+              SEQ i = 0 FOR num.agents
+                VAL INT y IS by + (INT TRUNC (PSR * infos[i][position][y])):
+                VAL INT x IS bx + (INT TRUNC (PSR * infos[i][position][x])):
+                CASE infos[i][type]
+                  AT.BOID
+                    VAL INT dy IS INT TRUNC (PSR * infos[i][velocity][y]):
+                    VAL INT dx IS INT TRUNC (PSR * infos[i][velocity][x]):
+                    SEQ
+                      -- fill.circle (x, y, PIXEL.SCALE / 50, infos[i][colour], r)
+                      fill.rectangle (x - 2, y - 2, 4, 4, infos[i][colour], r)
+                      INITIAL INT xx IS x:
+                      INITIAL INT yy IS y:
+                      draw.line (xx, yy, (-4) * dx, (-4) * dy, #123456, #808080, r)
+                  AT.CYLINDER
+                    draw.circle (x, y, INT TRUNC (PSR * infos[i][radius]), infos[i][colour], r)
+              graphics.out ! r
+          --}}}
+  :
+  --}}}
+
+  --{{{  FUNCTION wrap
+  --* Wrap array indexes around.
+  -- If given [@code -1], this will return [@code max - 1]; if given [@code max
+  -- + 1], this will return [@code 1]. This is not quite the same thing as
+  -- [@code \ max], since that doesn't do the right thing for negative numbers.
+  INT FUNCTION wrap (VAL INT i, max)
+    INT n:
+    VALOF
+      SEQ
+        n := i
+        WHILE n < 0
+          n := n + max
+      RESULT n \ max
+  :
+  --}}}
+
+  --{{{  PROC agent
+  --* An abstract interface between an actual agent and the simulated world.
+  -- This process hides all the details of vision and movement behind the [@ref
+  -- AGENT.CT] interface.
+  PROC agent (AGENT.CT? svr, SHARED LOC.CT! location, VAL AGENT.INFO start.info, SHARED CHAN BYTE err!)
+    INT id:
+    VECTOR position:
+    SHARED VIEWER.CT! viewer:
+    SHARED LOC.CT! new.location:
+    AGENT.INFO new.info:
+    INITIAL BOOL moving IS FALSE:
+    --{{{  PROC handle.movement
+    --* Enter a new location, if we'd been told to before.
+    -- If the location we enter says we have to move on (which can happen if
+    -- we've just done a big movement step that took us across more than one
+    -- location), then do so.
+    PROC handle.movement ()
+      WHILE moving
+        SEQ
+          --{{{  tell new location
+          location := new.location
+          CLAIM location
+            SEQ
+              location[req] ! enter; new.info
+              location[resp] ? CASE
+                stay.here; id; position; viewer
+                  moving := FALSE
+                go.there; new.location; new.info
+                  SKIP
+          --}}}
+    :
+    --}}}
+    SEQ
+      --{{{  register with starting location
+      CLAIM location
+        SEQ
+          location[req] ! enter; start.info
+          location[resp] ? CASE
+            stay.here; id; position; viewer
+              moving := FALSE
+            go.there; new.location; new.info
+              moving := TRUE
+      handle.movement ()
+      --}}}
+      WHILE TRUE
+        svr[req] ? CASE
+          set.info; new.info
+            --{{{  set.info
+            CLAIM location
+              location[req] ! set.info; id; new.info
+            --}}}
+          VECTOR delta:
+          move; delta
+            --{{{  move
+            SEQ
+              CLAIM location
+                SEQ
+                  location[req] ! move; id; delta
+                  location[resp] ? CASE
+                    stay.here; id; position; viewer
+                      moving := FALSE
+                    go.there; new.location; new.info
+                      moving := TRUE
+              handle.movement ()
+            --}}}
+          MOBILE []AGENT.INFO infos:
+          look; infos
+            --{{{  look
+            SEQ
+              CLAIM viewer
+                MOBILE []AGENT.INFO viewer.infos:
+                INT me, want.size:
+                SEQ
+                  viewer[req] ! borrow.info
+                  viewer[resp] ? CASE lend.info; viewer.infos
+                  --{{{  find this agent
+                  IF
+                    IF i = 0 FOR SIZE viewer.infos
+                      viewer.infos[i][local.id] = id
+                        me := i
+                    TRUE
+                      -- It's not there; that's OK
+                      me := -1
+                  --}}}
+                  --{{{  figure out how many entries we expect to return
+                  want.size := SIZE viewer.infos
+                  IF
+                    me <> (-1)
+                      want.size := want.size - 1
+                    TRUE
+                      SKIP
+                  --}}}
+                  --{{{  make the array the right size
+                  resize.array (infos, want.size)
+                  --}}}
+                  --{{{  copy the info
+                  IF
+                    me = (-1)
+                      --{{{  just copy everything
+                      SEQ i = 0 FOR SIZE infos
+                        infos[i] := viewer.infos[i]
+                      --}}}
+                    TRUE
+                      --{{{  copy everything but this agent
+                      SEQ
+                        SEQ i = 0 FOR me
+                          infos[i] := viewer.infos[i]
+                        SEQ i = me FOR ((SIZE viewer.infos) - me) - 1
+                          infos[i] := viewer.infos[i + 1]
+                      --}}}
+                  --}}}
+                  viewer[req] ! return.info; viewer.infos
+              --{{{  compute relative positions
+              SEQ i = 0 FOR SIZE infos
+                infos[i][position] := infos[i][position] - position
+              --}}}
+              svr[resp] ! seen; infos
+            --}}}
+  :
+  --}}}
+
+  --{{{  PROC boid
+  --* An actor implementing the Boids flocking algorithm.
+  PROC boid (VAL INT id, AGENT.CT! cli, VAL VECTOR init.velocity, MOBILE BARRIER bar, SHARED CHAN BYTE err!)
+    PROC report (CHAN BYTE out!)
+      SEQ
+        out.string ("Boid(", 0, out!)
+        out.int (id, 0, out!)
+        out.string ("): ", 0, out!)
+    :
+
+    --{{{  PROC filter.infos
+    PROC filter.infos (VAL []AGENT.INFO in, VAL VECTOR velocity, MOBILE []AGENT.INFO boids, obstacles)
+      VAL REAL32 my.angle IS ATAN2 (velocity[x], velocity[y]):
+
+      --{{{  FUNCTION angle.diff
+      REAL32 FUNCTION angle.diff (VAL REAL32 a, b)
+        REAL32 r:
+        VALOF
+          SEQ
+            r := a - b
+            IF
+              r < (-Pi)
+                r := r + (2.0 * Pi)
+              r > Pi
+                r := r - (2.0 * Pi)
+              TRUE
+                SKIP
+          RESULT ABS (r)
+      :
+      --}}}
+
+      --{{{  FUNCTION can.see
+      BOOL FUNCTION can.see (VAL AGENT.INFO info)
+        BOOL b:
+        VALOF
+          VAL VECTOR pos IS info[position]:
+          IF
+            magnitude2 (pos) > (VISION.RADIUS * VISION.RADIUS)
+              --{{{  too far away
+              b := FALSE
+              --}}}
+            info[type] = AT.CYLINDER
+              --{{{  cylinders are always "visible"
+              b := TRUE
+              --}}}
+            magnitude2 (velocity) < EPSILON
+              --{{{  sitting still -- so the angle will be meaningless; look around
+              b := TRUE
+              --}}}
+            angle.diff (ATAN2 (pos[x], pos[y]), my.angle) > VISION.MAX.ANGULAR.DIFF
+              --{{{  out of the field of view
+              b := FALSE
+              --}}}
+            TRUE
+              b := TRUE
+          RESULT b
+      :
+      --}}}
+
+      INITIAL INT n.boids IS 0:
+      INITIAL INT n.obstacles IS 0:
+      SEQ
+        --{{{  count the things we can see
+        SEQ i = 0 FOR SIZE in
+          IF
+            can.see (in[i])
+              CASE in[i][type]
+                AT.BOID
+                  n.boids := n.boids + 1
+                AT.CYLINDER
+                  n.obstacles := n.obstacles + 1
+                ELSE
+                  SKIP
+            TRUE
+              SKIP
+        --}}}
+        resize.array (boids, n.boids)
+        resize.array (obstacles, n.obstacles)
+        --{{{  move things to the right array
+        n.boids, n.obstacles := 0, 0
+        SEQ i = 0 FOR SIZE in
+          IF
+            can.see (in[i])
+              CASE in[i][type]
+                AT.BOID
+                  SEQ
+                    boids[n.boids] := in[i]
+                    n.boids := n.boids + 1
+                AT.CYLINDER
+                  SEQ
+                    obstacles[n.obstacles] := in[i]
+                    n.obstacles := n.obstacles + 1
+                ELSE
+                  SKIP
+            TRUE
+              SKIP
+        --}}}
+    :
+    --}}}
+
+    --{{{  PROC centre.of.mass.rule
+    PROC centre.of.mass.rule (VAL []AGENT.INFO infos, VECTOR accel)
+      INITIAL VECTOR com IS [0.0, 0.0]:
+      SEQ
+        --{{{  find centre of mass of agents we can see
+        IF
+          (SIZE infos) > 0
+            SEQ
+              SEQ i = 0 FOR SIZE infos 
+                com := com + infos[i][position]
+              com := com / (REAL32 ROUND (SIZE infos))
+          TRUE
+            SKIP
+        --}}}
+
+        accel := accel + (com / CENTRE.OF.MASS.FRACTION)
+    :
+    --}}}
+    --{{{  PROC repulsion.rule
+    PROC repulsion.rule (VAL []AGENT.INFO infos, VECTOR accel)
+      INITIAL VECTOR push IS [0.0, 0.0]:
+      SEQ
+        SEQ i = 0 FOR SIZE infos
+          VAL VECTOR pos IS infos[i][position]:
+          IF
+            magnitude2 (pos) < (REPULSION.DISTANCE * REPULSION.DISTANCE)
+              --{{{  this one's close; move away from it
+              push := push - pos
+              --}}}
+            TRUE
+              SKIP
+
+        accel := accel + (push / REPULSION.FRACTION)
+    :
+    --}}}
+    --{{{  PROC mean.velocity.rule
+    PROC mean.velocity.rule (VAL []AGENT.INFO infos, VAL VECTOR my.velocity, VECTOR accel)
+      INITIAL VECTOR perceived.velocity IS [0.0, 0.0]:
+      SEQ
+        IF
+          (SIZE infos) > 0
+            SEQ
+              SEQ i = 0 FOR SIZE infos
+                perceived.velocity := perceived.velocity + infos[i][velocity]
+              perceived.velocity := perceived.velocity / (REAL32 ROUND (SIZE infos))
+          TRUE
+            SKIP
+        perceived.velocity := perceived.velocity - my.velocity
+
+        accel := accel + (perceived.velocity / MEAN.VELOCITY.FRACTION)
+    :
+    --}}}
+
+    --{{{  PROC obstacle.rule
+    PROC obstacle.rule (VAL []AGENT.INFO infos, VECTOR accel)
+      INITIAL VECTOR push IS [0.0, 0.0]:
+      SEQ
+        SEQ i = 0 FOR SIZE infos
+          --{{{  compute how hard to push away from this object
+          VAL VECTOR pos IS infos[i][position]:
+          VAL REAL32 dist IS SQRT (magnitude2 (pos)) - infos[i][radius]:
+          IF
+            dist < 0.0
+              --{{{  past the soft threshold; push back hard
+              push := push - pos
+              --}}}
+            dist < SOFT.THRESHOLD
+              --{{{  inside the soft threshold; push back a variable amount
+              push := push - (pos * (1.0 (REAL32) - (dist / SOFT.THRESHOLD)))
+              --}}}
+            TRUE
+              --{{{  nowhere near
+              SKIP
+              --}}}
+          --}}}
+
+        accel := accel + (push / OBSTACLE.FRACTION)
+    :
+    --}}}
+
+    --{{{  PROC accelerate
+    PROC accelerate (VECTOR velocity, VAL VECTOR acceleration)
+      --{{{  PROC clamp
+      --* Clamp values that are close to zero to actually be zero.
+      -- This avoids underflow problems.
+      PROC clamp (REAL32 r)
+        IF
+          ABS (r) < EPSILON
+            r := 0.0
+          TRUE
+            SKIP
+      :
+      --}}}
+
+      VAL REAL32 SPEED.LIMIT2 IS SPEED.LIMIT * SPEED.LIMIT:
+      REAL32 mag:
+      SEQ
+        velocity := velocity + (acceleration / SMOOTH.ACCELERATION)
+        clamp (velocity[x])
+        clamp (velocity[y])
+
+        --{{{  apply speed limit
+        mag := magnitude2 (velocity)
+        IF
+          mag > SPEED.LIMIT2
+            velocity := velocity / (mag / SPEED.LIMIT2)
+          TRUE
+            SKIP
+        --}}}
+    :
+    --}}}
+
+    INITIAL VECTOR velocity IS init.velocity:
+    INITIAL MOBILE []AGENT.INFO raw.infos IS MOBILE [1]AGENT.INFO:
+    INITIAL MOBILE []AGENT.INFO boid.infos IS MOBILE [1]AGENT.INFO:
+    INITIAL MOBILE []AGENT.INFO obstacle.infos IS MOBILE [1]AGENT.INFO:
+--    INITIAL MOBILE []REAL32 floats IS MOBILE[1]REAL32:
+--    INITIAL MOBILE []INT ints IS MOBILE[1]INT:
+    WHILE TRUE
+      INITIAL VECTOR accel IS [0.0, 0.0]:
+      MOBILE [][]INT ints:
+      MOBILE [][]REAL32 floats:
+      INT size:
+      SEQ
+        SYNC bar -- Phase 1
+
+        --{{{  get raw info
+        cli[req] ! look; raw.infos
+        cli[resp] ? CASE seen; raw.infos
+        --}}}
+        --{{{  apply rules
+
+        --{{{ CL stuff
+        C.printfint (SIZE raw.infos)
+        C.occoids ((SIZE raw.infos), raw.infos)
+        size := (SIZE raw.infos)
+        IF 
+          (size) = 0
+            SKIP
+          (size) = 1
+            SKIP
+          TRUE
+            SEQ
+              C.printfint (raw.infos[0][local.id])
+              C.printfint (raw.infos[0][type])
+        --}}}
+
+        filter.infos (raw.infos, velocity, boid.infos, obstacle.infos)
+
+        centre.of.mass.rule (boid.infos, accel)
+        repulsion.rule (boid.infos, accel)
+        mean.velocity.rule (boid.infos, velocity, accel)
+
+        obstacle.rule (obstacle.infos, accel)
+        --}}}
+        --{{{  compute and send velocity
+        accelerate (velocity, accel)
+        cli[req] ! move; velocity
+        --}}}
+
+        SYNC bar -- Phase 2
+  :
+  --}}}
+
+  --{{{  PROC spawn.actor
+  --* Spawn a new actor into the grid.
+  PROC spawn.actor (VAL INT id, type, INT seed, SHARED LOC.CT! location, MOBILE BARRIER bar)
+    AGENT.CT? svr:
+    AGENT.CT! cli:
+    AGENT.INFO info:
+    SEQ
+      cli, svr := MOBILE AGENT.CT
+      info[type] := type
+      random.vector (1.0, seed, info[position])
+      CASE type
+        AT.BOID
+          --{{{  spawn a agent
+          SEQ
+            random.vector (MAX.INIT.VELOCITY * 2.0, seed, info[velocity])
+            info[velocity] := info[velocity] - [MAX.INIT.VELOCITY, MAX.INIT.VELOCITY] (VECTOR)
+            info[radius] := 0.0
+            info[colour] := hsv.to.rgb ((REAL32 ROUND id) / (REAL32 ROUND INITIAL.BOIDS), 0.6, 1.0)
+            FORK boid (id, cli, info[velocity], bar, err!)
+          --}}}
+        AT.CYLINDER
+          --{{{  spawn an obstacle
+          SEQ
+            info[velocity] := [0.0, 0.0]
+            info[radius], seed := random.real32 (MAX.CYLINDER.RADIUS - MIN.CYLINDER.RADIUS, seed)
+            info[radius] := info[radius] + MIN.CYLINDER.RADIUS
+            info[colour] := #FFFFFF
+          --}}}
+      FORK agent (svr, location, info, err!)
+  :
+  --}}}
+
+  --{{{  PROC display
+  --* Wrapper around a raster display; this clears the raster and limits the update rate.
+  PROC display (CHAN RASTER in?, out!, CHAN RASTER.EVENT events!)
+    --{{{  PROC clear
+    PROC clear (CHAN RASTER in?, out!)
+      WHILE TRUE
+        RASTER r:
+        SEQ
+          in ? r
+          clear.raster (r, #002000)
+          SEQ x = 1 FOR WIDTH.LOCATIONS - 1
+            draw.vertical.line (x * PIXEL.SCALE, 0, SIZE r, #447744, r)
+          SEQ y = 1 FOR HEIGHT.LOCATIONS - 1
+            draw.horizontal.line (0, y * PIXEL.SCALE, SIZE r[0], #447744, r)
+          out ! r
+    :
+    --}}}
+    --{{{  PROC speed.limit
+    PROC speed.limit (CHAN RASTER in?, out!)
+      TIMER tim:
+      INT t:
+      SEQ
+        tim ? t
+        WHILE TRUE
+          RASTER r:
+          SEQ
+            tim ? AFTER t
+            t := t PLUS SCREEN.UPDATE.TIME
+            in ? r
+            out ! r
+    :
+    --}}}
+
+    CHAN RASTER thru, cleared:
+    PAR
+      raster.capture ("Occoids",
+                      (WIDTH.LOCATIONS * PIXEL.SCALE),
+                      (HEIGHT.LOCATIONS * PIXEL.SCALE),
+                      4, in?, thru!, events!)
+      clear (thru?, cleared!)
+      speed.limit (cleared?, out!)
+  :
+  --}}}
+
+  --{{{  PROC cycle.limiter
+  --* Limit the maximum speed of the simulation.
+  -- This makes sure that the barrier cycles no more often than [@ref
+  -- CYCLE.TIME].
+  PROC cycle.limiter (MOBILE BARRIER bar, SHARED CHAN BYTE err!)
+    TIMER tim:
+    INT last.top:
+    INITIAL INT total IS 0:
+    INITIAL INT cycle IS 0:
+    SEQ
+      tim ? last.top
+      WHILE TRUE
+        INT top:
+        SEQ
+          tim ? top
+          tim ? AFTER last.top PLUS CYCLE.TIME
+
+          --{{{  update average
+          total := total + (top MINUS last.top)
+          cycle := cycle PLUS 1
+
+          IF
+            (cycle \ DISPLAY.TIME.CYCLES) = 0
+              CLAIM err!
+                INT num.procs:
+                SEQ
+                  C.ccsp.get.process.count (num.procs)
+
+                  out.string ("Cycle ", 0, err!)
+                  out.int (cycle, 8, err!)
+                  out.string ("; cycle time = ", 0, err!)
+                  out.int (total / DISPLAY.TIME.CYCLES, 8, err!)
+                  out.string (" us; ", 0, err!)
+                  out.int (num.procs, 8, err!)
+                  out.string (" processes*n", 0, err!)
+                  total := 0
+            TRUE
+              SKIP
+          --}}}
+
+          SYNC bar -- Phase 1
+          SYNC bar -- Phase 2
+
+          last.top := top
+  :
+  --}}}
+
+  --{{{  PROC event.handler
+  PROC event.handler (CHAN RASTER.EVENT in?)
+    WHILE TRUE
+      RASTER.EVENT ev:
+      SEQ
+        in ? ev
+        CASE ev[type]
+          RASTER.ET.MOUSEBUTTONDOWN
+            SEQ
+              -- do something at ev[x], ev[y]
+              SKIP
+          ELSE
+            SKIP
+  :
+  --}}}
+
+  --{{{  main program
+  [NUM.LOCATIONS + 1]CHAN RASTER gs:
+  CHAN RASTER disp.in, disp.out:
+
+  INITIAL MOBILE []SHARED LOC.CT! clis IS MOBILE [NUM.LOCATIONS]SHARED LOC.CT!:
+  INITIAL MOBILE []LOC.CT? svrs IS MOBILE [NUM.LOCATIONS]LOC.CT?:
+
+  [NUM.LOCATIONS]CHAN MOBILE BARRIER cbar:
+
+  SEQ
+    --{{{  allocate all the channel bundles
+    SEQ i = 0 FOR NUM.LOCATIONS
+      clis[i], svrs[i] := MOBILE LOC.CT
+    --}}}
+
+    --{{{  initialise openCL and CL kernels
+    C.initialisecl()
+    --}}}
+
+    CHAN RASTER.EVENT events:
+    PAR
+      --{{{  the grid of locations
+      PAR x = 0 FOR WIDTH.LOCATIONS
+        PAR y = 0 FOR HEIGHT.LOCATIONS
+          VAL INT cell.num IS x + (y * WIDTH.LOCATIONS):
+
+          CHAN RASTER gin? IS gs[cell.num]:
+          CHAN RASTER gout! IS gs[cell.num + 1]:
+
+          INITIAL MOBILE []SHARED LOC.CT! these.clis IS MOBILE [DIRECTIONS]SHARED LOC.CT!:
+          SEQ
+            SEQ i = 0 FOR DIRECTIONS
+              VAL INT that.x IS wrap (x + OFFSETS[i][0], WIDTH.LOCATIONS):
+              VAL INT that.y IS wrap (y + OFFSETS[i][1], HEIGHT.LOCATIONS):
+              VAL INT that.num IS that.x + (that.y * WIDTH.LOCATIONS):
+              these.clis[i] := clis[that.num]
+            location (svrs[cell.num], clis[cell.num], these.clis, gin?, gout!, cbar[cell.num]?, x, y)
+      --}}}
+
+      display (gs[NUM.LOCATIONS]?, gs[0]!, events!)
+      event.handler (events?)
+
+      FORKING
+        TIMER tim:
+        INT seed:
+        INITIAL MOBILE BARRIER bar IS MOBILE BARRIER:
+        SEQ
+          tim ? seed
+          seed := (seed >> 2) + 1
+
+          --{{{  send barrier to locations
+          SEQ i = 0 FOR NUM.LOCATIONS
+            cbar[i] ! bar
+          --}}}
+
+          FORK cycle.limiter (bar, err!)
+
+          --{{{  spawn cylinders
+          SEQ i = 0 FOR INITIAL.CYLINDERS
+            INT cell:
+            SEQ
+              cell, seed := random (NUM.LOCATIONS, seed)
+              spawn.actor ((-1) - i, AT.CYLINDER, seed, clis[cell], bar)
+          --}}}
+          --{{{  spawn agents
+          INITIAL INT id IS 0:
+          SEQ i = 0 FOR INITIAL.BOIDS
+            INT cell:
+            SEQ
+              cell, seed := random (NUM.LOCATIONS, seed)
+              spawn.actor (id, AT.BOID, seed, clis[cell], bar)
+              id := id + 1
+          --}}}
+  --}}}
+:

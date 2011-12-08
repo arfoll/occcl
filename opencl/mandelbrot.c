@@ -6,8 +6,11 @@
  */
 
 #include "mandelbrot.h"
+
+#define IMAGEWIDTH 100
+
 #define DEBUG 0
-#define CLMANDEL 1
+#define CLMANDEL 0
 
 static int mandelbrot_init = 0;
 static cl_context *context;
@@ -18,35 +21,50 @@ static cl_command_queue *cq;
 
 cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
 
-void mandelbrot_c (cl_char *data, cl_fract *job, cl_int width)
+#if 0
+void mandelbrot_c (cl_char **data, cl_fract *job, cl_int length)
 {
-  int i = 0;
-  cl_fract y = job[0]/job[1] - job[2];
+  int j = 0;
+  for (j = 0; j < length; j++) {
+    int i = 0;
+    cl_fract y = j/job[1] - job[2];
 #if DEBUG
-  fprintf (stderr, "native job0 = %f, job1 = %f, job2, %f, job3 %f, y = %f\n", job[0], job[1], job[2], job[3], y);
+    fprintf (stderr, "native job0 = %f, job1 = %f, job2, %f, job3 %f, y = %f\n", job[0], job[1], job[2], job[3], y);
 #endif
-  for (i = 0; i < width; i++) {
-    cl_fract real = ((i - 50) / (job[1] * 2.0)) - job[3];
-    cl_fract imag = y;
-    cl_fract iter_real = 0.0;
-    cl_fract iter_imag = 0.0;
-    int count = 0;
-    while ((((iter_real*iter_real)+(iter_imag*iter_imag)) < 32.0) && (count < 240)) {
-      cl_fract iter_real2 = iter_real;
-      cl_fract iter_imag2 = iter_imag;
-      cl_fract iter_r;
-      cl_fract iter_i;
-      iter_r = (iter_real*iter_real2) - (iter_imag*iter_imag2);
-      iter_i = (iter_imag*iter_real2) + (iter_real*iter_imag2);
-      iter_real = real + iter_r;
-      iter_imag = imag + iter_i;
-      count++;
+    for (i = 0; i < IMAGEWIDTH; i++) {
+      cl_fract real = ((i - 50) / (job[1] * 2.0)) - job[3];
+      cl_fract imag = y;
+      cl_fract iter_real = 0.0;
+      cl_fract iter_imag = 0.0;
+      int count = 0;
+      while ((((iter_real*iter_real)+(iter_imag*iter_imag)) < 32.0) && (count < 240)) {
+        cl_fract iter_real2 = iter_real;
+        cl_fract iter_imag2 = iter_imag;
+        cl_fract iter_r;
+        cl_fract iter_i;
+        iter_r = (iter_real*iter_real2) - (iter_imag*iter_imag2);
+        iter_i = (iter_imag*iter_real2) + (iter_real*iter_imag2);
+        iter_real = real + iter_r;
+        iter_imag = imag + iter_i;
+        count++;
+      }
+      int val = count % 16;
+      data[j][i*2] = (char) (val % 6);
+      data[j][(i*2)+1] = table_int[val];
     }
-    int val = count % 16;
-    data[i*2] = (char) (val % 6);
-    data[(i*2)+1] = table_int[val];
   }
 }
+#else
+void mandelbrot_c (cl_char **data, cl_fract *job, cl_int length)
+{
+  int j, i;
+  for (j = 0; j < length; j++) {
+    for (i = 0; i < 200; i++) {
+      data[j][i] = 65;
+    }
+  }
+}
+#endif
 
 void _mandelbrot (int *w)
 { 
@@ -57,7 +75,9 @@ void _mandelbrot (int *w)
   job_y[4] = job[0]/job[1] - job[2];
   mandelbrot ((cl_char*) (w[0]), (cl_fract*) (&job_y), (cl_int) (w[4]));
 #else
-  mandelbrot_c ((cl_char*) (w[0]), (cl_fract*) (w[2]), (cl_int) (w[4]));
+  // due to the [][] array w[1] is 50 and w[2] is 200
+  cl_char *data = (cl_char*) w[0];
+  mandelbrot_c (output, (cl_fract*) (w[3]), (cl_int) (w[5]));
 #endif
 }
 

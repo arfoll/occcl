@@ -24,6 +24,6 @@ typedef cl_float cl_fract;
 void _mandelbrot (int *w);
 void _initmandelbrot (int *w);
 int mandelbrot (cl_char *data, cl_fract *job, cl_int width);
-void mandelbrot_c (cl_char *data, cl_fract *job, cl_int width);
+void mandelbrot_c (cl_char **data, cl_fract *job, cl_int width);
 int init_mandelbrot ();
 cl_int print_mandelbrot_kernel_info ();

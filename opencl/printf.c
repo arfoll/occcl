@@ -21,3 +21,12 @@ void _printfjob (int *w)
   printf_job ((float*) (w[0]), (int) (w[1]));
 }
 
+void _printfreal (int *w)
+{
+  fprintf(stderr, "%f\n", (double) (w[0]));
+}
+
+void _printfint (int *w)
+{
+  fprintf(stderr, "%d\n", (int) (w[0]));
+}
