@@ -11,8 +11,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DEBUG 1
-
 static cl_context context;
 static cl_device_id *device;
 static cl_uint numdevices;
@@ -161,8 +159,7 @@ cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog, const ch
   //and compile it (after this we could extract the compiled version)
   error = clBuildProgram(*prog, 0, NULL, options, NULL, NULL);
 
-// TODO: ERROR_CHECK not DEBUG
-#if DEBUG
+#if ERROR_CHECK 
   if (error != CL_SUCCESS) {
     cl_char *log = (cl_char*)malloc(32768);
     error = clGetProgramBuildInfo(*prog, *device, CL_PROGRAM_BUILD_LOG, 32768, log, NULL);

@@ -7,7 +7,8 @@
 
 #include <occcl.h>
 
-#define NUM_DEVICES 2
+#define NUM_DEVICES 10
+#define ERROR_CHECK 0
 
 cl_int initialisecl();
 cl_int destroycl();
