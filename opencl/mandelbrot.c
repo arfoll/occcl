@@ -20,11 +20,10 @@ void mandelbrot_c (cl_char (*data)[200], cl_fract *job)
 {
   int j, i;
 
-  cl_fract y = job[0]/job[1] - job[2];
-
   for (j = 0; j < IMAGEHEIGHT; j++) {
     // calculate job[0] value
-    *job = (cl_fract) j - (IMAGEHEIGHT/2);
+    job[0] = (cl_fract) j - (IMAGEHEIGHT/2);
+    cl_fract y = job[0]/job[1] - job[2];
 
 #if DEBUG
     fprintf (stderr, "native job0 = %f, job1 = %f, job2, %f, job3 %f, y = %f\n", job[0], job[1], job[2], job[3], y);
