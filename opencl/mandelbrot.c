@@ -21,7 +21,7 @@ static cl_command_queue *cq;
 
 cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
 
-void mandelbrot_c (cl_char *ptr, cl_fract *job)
+void mandelbrot_c (cl_char (*data)[200], cl_fract *job)
 {
   static int length = 50;
   static int width = 100;
@@ -30,8 +30,6 @@ void mandelbrot_c (cl_char *ptr, cl_fract *job)
   for (j = 0; j < length; j++) {
     // calculate job[0] value
     *job = (cl_fract) j - (length/2);
-    // move pointer to correct part of data array
-    cl_char *data = &ptr[j*width*2];
 
     cl_fract y = job[0]/job[1] - job[2];
 #if DEBUG
@@ -55,8 +53,8 @@ void mandelbrot_c (cl_char *ptr, cl_fract *job)
         count++;
       }
       int val = count % 16;
-      data[i*2] = (char) (val % 6);
-      data[(i*2)+1] = table_int[val];
+      data[j][i*2] = (char) (val % 6);
+      data[j][(i*2)+1] = table_int[val];
     }
   }
 }
@@ -73,8 +71,8 @@ void _mandelbrot (int *w)
   // due to the [][] array w[1] is 50 and w[2] is 200
   // w[3] would be jobs
   // but we use a big [] array so we just get 50*200 back
-  cl_char *data = (cl_char*) w[0];
-  mandelbrot_c (data, (cl_fract*) (w[2]));
+  cl_char (*data)[200] = (cl_char*) w[0];
+  mandelbrot_c (data, (cl_fract*) (w[3]));
 #endif
 }
 

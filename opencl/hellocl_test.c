@@ -36,7 +36,8 @@ int getCorrectDevice(char *requiredExt) {
 }
 
 int mandelbrotTest(int verbose, int iterations) {
-  cl_int error;
+  cl_int error = CL_SUCCESS;
+#if 0
   int i;
 
   fprintf (stdout, "========= MANDELBROT =========\n");
@@ -61,6 +62,7 @@ int mandelbrotTest(int verbose, int iterations) {
 
   free (chdata);
   free (job);
+#endif
   return error;
 }
 

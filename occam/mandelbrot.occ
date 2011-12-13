@@ -24,7 +24,7 @@
 
 #INCLUDE "course.module"
 
-#PRAGMA EXTERNAL "PROC C.mandelbrot ([]BYTE data, []REAL64 job, VAL INT width) = 0"
+#PRAGMA EXTERNAL "PROC C.mandelbrot ([][]BYTE data, []REAL64 job) = 0"
 #PRAGMA EXTERNAL "PROC C.initmandelbrot () = 0"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
 #PRAGMA EXTERNAL "PROC C.printfjob (VAL []REAL64 job) = 0"
@@ -45,7 +45,7 @@ VAL INT LINES.PER.WORKER IS (IMAGE.HEIGHT / N.WORKERS):
 VAL [][5]BYTE ansicolours IS ["*#1B[31m", "*#1B[32m", "*#1B[33m", "*#1B[36m", "*#1B[35m", "*#1B[34m"]:
 
 PROTOCOL P.JOB.IN IS INT; INT; [4]REAL64:
-PROTOCOL P.JOB.OUT IS INT; INT; [IMAGE.HEIGHT * 200]BYTE:
+PROTOCOL P.JOB.OUT IS INT; INT; [IMAGE.HEIGHT][IMAGE.WIDTH*2]BYTE:
 
 CHAN TYPE CT.WORK.IN
   MOBILE RECORD
@@ -64,7 +64,7 @@ PROC worker (SHARED CT.WORK.IN! link.in, SHARED CT.WORK.OUT! link.out)
     running := TRUE
     WHILE running
       [4]REAL64 job:
-      [IMAGE.HEIGHT * 200]BYTE output:
+      [IMAGE.HEIGHT][IMAGE.WIDTH*2]BYTE output:
       INT jobid, frame:
       SEQ
         CLAIM link.in
@@ -74,7 +74,7 @@ PROC worker (SHARED CT.WORK.IN! link.in, SHARED CT.WORK.OUT! link.out)
             running := FALSE
           TRUE
             SEQ
-              C.mandelbrot(output, job, IMAGE.HEIGHT)
+              C.mandelbrot(output, job)
               CLAIM link.out
                 link.out[out] ! frame; jobid; output
 :
@@ -122,7 +122,7 @@ PROC farmer (CT.WORK.IN? link.in, CHAN INT tick!, tock?, kill!)
 :
 
 PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE scr!)
-  [MAX.FRAMES][IMAGE.HEIGHT * (IMAGE.WIDTH * 2)]BYTE framebuffer:
+  [MAX.FRAMES][IMAGE.HEIGHT][IMAGE.WIDTH * 2]BYTE framebuffer:
   [MAX.FRAMES]INT fcount:
   TIMER tim:
   INT t:
@@ -171,7 +171,7 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
                       SEQ i = 0 FOR IMAGE.WIDTH
                         BYTE v:
                         SEQ
-                          v := framebuffer[lbuf][(j*200) + (i*2)]
+                          v := framebuffer[lbuf][j][i*2]
                           IF
                             cpix <> v
                               SEQ
@@ -179,7 +179,7 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
                                 out.string (ansicolours[INT (cpix)], 0, scr!)
                             TRUE
                               SKIP
-                          scr ! framebuffer[lbuf][(j*200) + ((i*2)+1)]
+                          scr ! framebuffer[lbuf][j][((i*2)+1)]
                       scr ! '*n'
                   -- normalise colour
                   out.string ("*#1B[0m", 0, scr!)
