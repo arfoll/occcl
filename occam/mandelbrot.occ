@@ -24,10 +24,11 @@
 
 #INCLUDE "course.module"
 
-#PRAGMA EXTERNAL "PROC C.mandelbrot (VAL []BYTE data, VAL []REAL64 job, VAL INT width) = 0"
+#PRAGMA EXTERNAL "PROC C.mandelbrot ([]BYTE data, []REAL64 job, VAL INT width) = 0"
 #PRAGMA EXTERNAL "PROC C.initmandelbrot () = 0"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
 #PRAGMA EXTERNAL "PROC C.printfjob (VAL []REAL64 job) = 0"
+#PRAGMA EXTERNAL "PROC C.printfint (VAL INT int) = 0"
 #PRAGMA EXTERNAL "PROC C.destroycl () = 0"
 
 VAL INT IMAGE.WIDTH IS 100:
@@ -68,13 +69,12 @@ PROC worker (SHARED CT.WORK.IN! link.in, SHARED CT.WORK.OUT! link.out)
       SEQ
         CLAIM link.in
           link.in[in] ? frame; jobid; job
-        --C.printfjob (job)
         IF
           (jobid = (-1)) OR (frame = (-1))
             running := FALSE
           TRUE
             SEQ
-              C.mandelbrot(output, job, IMAGE.WIDTH)
+              C.mandelbrot(output, job, IMAGE.HEIGHT)
               CLAIM link.out
                 link.out[out] ! frame; jobid; output
 :
@@ -120,7 +120,7 @@ PROC farmer (CT.WORK.IN? link.in, CHAN INT tick!, tock?, kill!)
 :
 
 PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE scr!)
-  [MAX.FRAMES][IMAGE.HEIGHT * 200]BYTE framebuffer:
+  [MAX.FRAMES][IMAGE.HEIGHT * (IMAGE.WIDTH * 2)]BYTE framebuffer:
   [MAX.FRAMES]INT fcount:
   TIMER tim:
   INT t:
@@ -137,20 +137,31 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
     INITIAL BOOL running IS TRUE:
     WHILE running
       ALT
-        INT id, frame:
+        INT id, frame, calc:
         link.out[out] ? frame; id; framebuffer[frame \ MAX.FRAMES]
+          INITIAL BOOL pr IS FALSE:
           SEQ
-            fcount[frame \ MAX.FRAMES] := fcount[frame \ MAX.FRAMES] - 1
+            -- count should be decremented at every line we get but we get the whole frame
+            -- so we decrement by IMAGE.HEIGHT instead
+            calc := frame \ MAX.FRAMES
             IF
-              fcount[lframe \ MAX.FRAMES] = 0
-                -- got all results for the lowest frame
-                INITIAL INT lbuf IS (lframe \ MAX.FRAMES):
+              frame = 51
+                SEQ
+                  pr := TRUE
+              TRUE
+                SKIP
+            C.printfint(frame)
+            fcount[calc] := fcount[calc] - IMAGE.HEIGHT
+            IF
+              fcount[lframe \ MAX.FRAMES] = 0 -- this is the lowest frame in the buffer 
+                INITIAL INT lbuf IS (lframe \ MAX.FRAMES):  -- lowest frame is lbuf
                 SEQ
                   tim ? AFTER t
-
+                  -- reset fcount to IMAGE.HEIGHT
                   fcount[lbuf] := IMAGE.HEIGHT
+                  --C.printfint (lbuf)
                   --{{{  dump framebuffer[lbuf]
-                  cursor.x.y (1, 1, scr!)
+                  --cursor.x.y (1, 1, scr!)
 
                   INITIAL BYTE cpix IS #FF:
                   SEQ j = 0 FOR IMAGE.HEIGHT
@@ -158,15 +169,15 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
                       SEQ i = 0 FOR IMAGE.WIDTH
                         BYTE v:
                         SEQ
-                          v := framebuffer[lbuf][j + (i*2)]
+                          v := framebuffer[lbuf][(j*IMAGE.WIDTH) + (i*2)]
                           IF
                             cpix <> v
                               SEQ
                                 cpix := v
-                                out.string (ansicolours[INT cpix], 0, scr!)
+                                out.string (ansicolours[INT (cpix)], 0, scr!)
                             TRUE
                               SKIP
-                          scr ! framebuffer[lbuf][j + ((i*2)+1)]
+                          scr ! framebuffer[lbuf][(j*IMAGE.WIDTH) + ((i*2)+1)]
                       scr ! '*n'
                   -- normalise colour
                   out.string ("*#1B[0m", 0, scr!)
@@ -181,7 +192,9 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
           tock ! hframe
         INT any:
         kill ? any
-          running := FALSE
+          SEQ
+            out.string ("EOM - End Of Mandelbrot*n", 0, scr!)
+            running := FALSE
 :
 
 
@@ -198,8 +211,8 @@ PROC mandelbrot (CHAN BYTE kyb?, scr!, err!)
     erase.screen (scr!)
 
     -- initialise openCL and mandelbrot CL kernel
-    C.initialisecl()
-    C.initmandelbrot ()
+    --C.initialisecl()
+    --C.initmandelbrot ()
 
     CHAN INT tick, tock, kill:
     PAR

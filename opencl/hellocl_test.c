@@ -49,52 +49,18 @@ int mandelbrotTest(int verbose, int iterations) {
   cl_int width = 100;
   //make job array with rawdata
   cl_fract *job = (cl_fract*)malloc(sizeof(cl_fract)*5);
-  cl_fract *job_ori = (cl_fract*)malloc(sizeof(cl_fract)*4);
   cl_fract rawdata[4] = {-25.000000, 534.086426, -0.271229, 1.159260};
   for (i=0; i < 4; i++) {
-    job[i] = job_ori[i] = rawdata[i];
+    job[i] = rawdata[i];
   } 
   // make char arrays and fill them with blank data
-  cl_char *chdata = (cl_char*)malloc(sizeof(cl_char)*width*2);
-  cl_char *chdata2 = (cl_char*)malloc(sizeof(cl_char)*width*2);
-  for (i=0; i < width*2; i++) {
-    chdata[i] = i;
-    chdata2[i] = i;
-  }
+  cl_char *chdata = (cl_char*)malloc(sizeof(cl_char)*width*2*50);
+  memset(chdata, 2, (sizeof(cl_char)*width*2*50));
 
-  // run the mandelbrot 50 times changing job[1] values
-  int errors = 0;
-  int x = 0;
-  if (iterations == 8) {
-    i = iterations;
-  } else {
-    i = -25;
-  }
-  for (; i < iterations+1; i++) {
-    job[0] = job_ori[0] = i;
-    // calculate y for cl function
-    job[4] = job[0]/job[1] - job[2];
-    error += mandelbrot(chdata, job, width);
-    mandelbrot_c(chdata2, job_ori, width);
+  mandelbrot_c(chdata, job, 50);
 
-    // error checking
-    for (x=0; x < width; x++) {
-      if (chdata[x] != chdata2[x]) {
-        errors++;
-        if (verbose) {
-          fprintf(stdout, "mandelcl(%d) = %d vs %d\n", x, (int) chdata[x], (int) chdata2[x]);
-        }
-      }
-    }
-  }
-
-  // print any possible errors from CL kernel call
-  fprintf (stdout, "mandelbrot CL errors * %d = %s\n", iterations, errorMessageCL(error));
-  fprintf (stdout, "mandelbrot calculations with %d errors\n", errors);
-
-  // cleanup
   free (chdata);
-  free (chdata2);
+  free (job);
   return error;
 }
 
