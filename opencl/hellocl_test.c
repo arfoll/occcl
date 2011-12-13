@@ -57,7 +57,7 @@ int mandelbrotTest(int verbose, int iterations) {
   cl_char *chdata = (cl_char*)malloc(sizeof(cl_char)*width*2*50);
   memset(chdata, 2, (sizeof(cl_char)*width*2*50));
 
-  mandelbrot_c(chdata, job, 50);
+  mandelbrot_c(chdata, job);
 
   free (chdata);
   free (job);

@@ -95,7 +95,9 @@ PROC farmer (CT.WORK.IN? link.in, CHAN INT tick!, tock?, kill!)
           INT any:
           tock ? any
 
-          wpacket[0] := zoom
+          -- first value is 0 because it changes according to height
+          -- since we give the whole frame we work it out in C
+          wpacket[0] := (0.5)
           wpacket[1] := zoom
           wpacket[2] := y.drift
           wpacket[3] := x.drift
@@ -150,7 +152,7 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
                   pr := TRUE
               TRUE
                 SKIP
-            C.printfint(frame)
+            --C.printfint(frame)
             fcount[calc] := fcount[calc] - IMAGE.HEIGHT
             IF
               fcount[lframe \ MAX.FRAMES] = 0 -- this is the lowest frame in the buffer 
@@ -161,7 +163,7 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
                   fcount[lbuf] := IMAGE.HEIGHT
                   --C.printfint (lbuf)
                   --{{{  dump framebuffer[lbuf]
-                  --cursor.x.y (1, 1, scr!)
+                  cursor.x.y (1, 1, scr!)
 
                   INITIAL BYTE cpix IS #FF:
                   SEQ j = 0 FOR IMAGE.HEIGHT
@@ -169,7 +171,7 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
                       SEQ i = 0 FOR IMAGE.WIDTH
                         BYTE v:
                         SEQ
-                          v := framebuffer[lbuf][(j*IMAGE.WIDTH) + (i*2)]
+                          v := framebuffer[lbuf][(j*200) + (i*2)]
                           IF
                             cpix <> v
                               SEQ
@@ -177,7 +179,7 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
                                 out.string (ansicolours[INT (cpix)], 0, scr!)
                             TRUE
                               SKIP
-                          scr ! framebuffer[lbuf][(j*IMAGE.WIDTH) + ((i*2)+1)]
+                          scr ! framebuffer[lbuf][(j*200) + ((i*2)+1)]
                       scr ! '*n'
                   -- normalise colour
                   out.string ("*#1B[0m", 0, scr!)
