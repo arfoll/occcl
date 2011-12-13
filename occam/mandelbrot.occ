@@ -213,8 +213,8 @@ PROC mandelbrot (CHAN BYTE kyb?, scr!, err!)
     erase.screen (scr!)
 
     -- initialise openCL and mandelbrot CL kernel
-    --C.initialisecl()
-    --C.initmandelbrot ()
+    C.initialisecl()
+    C.initmandelbrot ()
 
     CHAN INT tick, tock, kill:
     PAR

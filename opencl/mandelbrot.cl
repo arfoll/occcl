@@ -8,17 +8,22 @@
 #pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
-__kernel void mandelbrot (__global char *data, __global double *job) 
-{ 
+__kernel void mandelbrot (__global char (*data)[200], __global double *job)
+{
   char table_char[] = " .,*~*^:;|&[$%@#";
-  //int table_char[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
-  const int idx = get_global_id(0); 
+  const int idy = get_global_id(0); 
+  const int idx = get_global_id(1);
+
+  // this should not be done in the CL kernel
+  job[0] = (double) idy - 25;
+  double y = job[0]/job[1] - job[2];
+
   double real = (((idx - 50) / (job[1] * 2.0)) - job[3]); 
-  double imag = job[4]; 
+  double imag = y;
   double iter_real = 0.0; 
   double iter_imag = 0.0; 
   int count = 0; 
-  while ((((iter_real*iter_real)+(iter_imag*iter_imag)) < 32.0) && (count < 240)) { 
+  while ((((iter_real*iter_real)+(iter_imag*iter_imag)) < 32.0) && (count < 240)) {
     double iter_r; 
     double iter_i; 
     iter_r = ((iter_real*iter_real) - (iter_imag*iter_imag)); 
@@ -26,8 +31,9 @@ __kernel void mandelbrot (__global char *data, __global double *job)
     iter_real = (real + iter_r); 
     iter_imag = (imag + iter_i); 
     count++; 
-  } 
+  }
   int val = count % 16;
-  data[idx*2] = (char) (val % 6);
-  data[(idx*2)+1] = table_char[val];
+
+  data[idy][idx*2] = (char) (val % 6);
+  data[idy][(idx*2)+1] = table_char[val];
 }
