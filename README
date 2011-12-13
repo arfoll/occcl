@@ -46,6 +46,22 @@ C (Intel Q6600 @ 3.0ghz):
 Fred-lab-PC-Q9400 @ 2.66GHz
   time = 22505 ms  (800 iters, 128 workers)
 
+mandelbrot (occoid) benchmark (-O2) 850 iterations:
+(Intel Q6600 @ 3.0ghz + nvidia GT430)
+New OpenCL implementation
+  real	0m22.248s
+  user	0m1.160s
+  sys	0m1.600s
+New C implemenation
+  real	0m22.899s
+  user	0m3.210s
+  sys	0m0.720s
+Old OpenCL implementation
+  real	0m29.011s
+  user	0m7.486s
+  sys	0m13.882s
+
+
 
 CONCLUSION
 
