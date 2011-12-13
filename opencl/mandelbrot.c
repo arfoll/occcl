@@ -21,49 +21,43 @@ static cl_command_queue *cq;
 
 cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
 
-void mandelbrot_cori (cl_char *data, cl_fract *job, cl_int width)
-{
-  int i = 0;
-  cl_fract y = job[0]/job[1] - job[2];
-#if DEBUG
-  fprintf (stderr, "native job0 = %f, job1 = %f, job2, %f, job3 %f, y = %f\n", job[0], job[1], job[2], job[3], y);
-#endif
-  for (i = 0; i < width; i++) {
-    cl_fract real = ((i - 50) / (job[1] * 2.0)) - job[3];
-    cl_fract imag = y;
-    cl_fract iter_real = 0.0;
-    cl_fract iter_imag = 0.0;
-    int count = 0;
-    while ((((iter_real*iter_real)+(iter_imag*iter_imag)) < 32.0) && (count < 240)) {
-      cl_fract iter_real2 = iter_real;
-      cl_fract iter_imag2 = iter_imag;
-      cl_fract iter_r;
-      cl_fract iter_i;
-      iter_r = (iter_real*iter_real2) - (iter_imag*iter_imag2);
-      iter_i = (iter_imag*iter_real2) + (iter_real*iter_imag2);
-      iter_real = real + iter_r;
-      iter_imag = imag + iter_i;
-      count++;
-    }
-    int val = count % 16;
-    data[i*2] = (char) (val % 6);
-    data[(i*2)+1] = table_int[val];
-  }
-}
-
-void mandelbrot_c (cl_char *data, cl_fract *job)
+void mandelbrot_c (cl_char *ptr, cl_fract *job)
 {
   static int length = 50;
   static int width = 100;
 
-  int j;
+  int j, i;
   for (j = 0; j < length; j++) {
     // calculate job[0] value
     *job = (cl_fract) j - (length/2);
     // move pointer to correct part of data array
-    cl_char *ptr = &data[j*200];
-    // call original function to go work on the data from ptr
-    mandelbrot_cori (ptr, job, width);
+    cl_char *data = &ptr[j*width*2];
+
+    cl_fract y = job[0]/job[1] - job[2];
+#if DEBUG
+    fprintf (stderr, "native job0 = %f, job1 = %f, job2, %f, job3 %f, y = %f\n", job[0], job[1], job[2], job[3], y);
+#endif
+    for (i = 0; i < width; i++) {
+      cl_fract real = ((i - length) / (job[1] * 2.0)) - job[3];
+      cl_fract imag = y;
+      cl_fract iter_real = 0.0;
+      cl_fract iter_imag = 0.0;
+      int count = 0;
+      while ((((iter_real*iter_real)+(iter_imag*iter_imag)) < 32.0) && (count < 240)) {
+        cl_fract iter_real2 = iter_real;
+        cl_fract iter_imag2 = iter_imag;
+        cl_fract iter_r;
+        cl_fract iter_i;
+        iter_r = (iter_real*iter_real2) - (iter_imag*iter_imag2);
+        iter_i = (iter_imag*iter_real2) + (iter_real*iter_imag2);
+        iter_real = real + iter_r;
+        iter_imag = imag + iter_i;
+        count++;
+      }
+      int val = count % 16;
+      data[i*2] = (char) (val % 6);
+      data[(i*2)+1] = table_int[val];
+    }
   }
 }
 
