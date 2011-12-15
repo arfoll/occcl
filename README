@@ -52,7 +52,7 @@ New OpenCL implementation
   real	0m22.248s
   user	0m1.160s
   sys	0m1.600s
-New C implemenation
+New C implemenatation
   real	0m22.899s
   user	0m3.210s
   sys	0m0.720s
@@ -61,6 +61,12 @@ Old OpenCL implementation
   user	0m7.486s
   sys	0m13.882s
 
+mandebrot no disp
+(Intel Q6600 @ 3.0ghz + nvidia GT430)
+OpenCL implementationi (frame)
+C implementation (frame)
+Occam implementation (line)
+  time = 13635 ms
 
 
 CONCLUSION

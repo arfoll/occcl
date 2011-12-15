@@ -84,7 +84,7 @@ int mandelbrot (cl_char (*data)[200], cl_fract *job) {
            job[0], job[1], job[2], job[3]);
 #endif
 
-#if 1 
+#if 0 
   // test initialise data
   memset (data, 2,(IMAGEHEIGHT*IMAGEWIDTH*2)*sizeof(cl_char));
 #endif
@@ -114,20 +114,21 @@ int mandelbrot (cl_char (*data)[200], cl_fract *job) {
     exit(10);
   }
 
-#if 0
+#if C_PRINT
   // this will print a frame coming out of the CL kernel in a dirty but functional manner
-  // colours will be ignored
   int i,j;
+  int colour = -1;
   for (i=0; i < IMAGEHEIGHT; i++) {
     for (j=0; j < IMAGEWIDTH*2; j++) {
-      if (j % 2) {
-        fprintf (stderr, "%c", data[i][j]);
+      if (colour != data[i][j]) {
+        colour = data[i][j];
+        textcolour(colour);
       }
+      j++;
+      fprintf (stdout, "%c", data[i][j]);
     }
-    fprintf(stderr, "\n");
+    fprintf(stdout, "\n");
   }
-
-  exit (1);
 #endif
  
   return error;

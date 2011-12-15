@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-O2 -Wall -lOpenCL -lm -I.
 DEPS = 
-OBJ = hellocl.o hellocl_test.o initial.o rot13.o sin.o mandelbrot.o printf.o modulo.o occoids.o
+OBJ = hellocl.o hellocl_test.o initial.o rot13.o sin.o mandelbrot.o printf.o modulo.o occoids.o colour.o
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
@@ -9,4 +9,4 @@ OBJ = hellocl.o hellocl_test.o initial.o rot13.o sin.o mandelbrot.o printf.o mod
 hellocl: $(OBJ)
 	gcc -o $@ $^ $(CFLAGS)
 clean:
-	rm -f hellocl.o hellocl_test.o initial.o rot13.o sin.o mandelbrot.o printf.o modulo.o occoids.o hellocl
+	rm -f hellocl.o hellocl_test.o initial.o rot13.o sin.o mandelbrot.o printf.o modulo.o occoids.o colour.o hellocl

@@ -18,12 +18,17 @@
 
 #define DEBUG 0
 #define CLMANDEL 1
+#define C_PRINT 0
 #define DOUBLE 1
 
 #if DOUBLE
 typedef double cl_fract;
 #else
 typedef cl_float cl_fract;
+#endif
+
+#if C_PRINT
+#include "colour.h"
 #endif
 
 void _mandelbrot (int *w);
