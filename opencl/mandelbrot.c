@@ -104,8 +104,8 @@ int mandelbrot (cl_char (*data)[200], cl_fract *job) {
   // Read the result back into data
   error = clEnqueueReadBuffer(*cq, mem1, CL_TRUE, 0, (size_t) (IMAGEHEIGHT*IMAGEWIDTH*2), data, 0, 0, 0);
 
-  // cleanup
-  error = clFlush(*cq);
+  // cleanup - don't perform a flush as the queue is now shared between all executions. The
+  // blocking clEnqueueReadBuffer should be enough
   clReleaseMemObject(mem1);
   clReleaseMemObject(mem2);
 

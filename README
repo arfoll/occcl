@@ -20,6 +20,9 @@ CL_DEVICE_TYPE_GPU:
     OpenCL 1.1 SDK = AMD APP SDK 2.5
     Extensions = cl_amd_fp64 cl_khr_gl_sharing cl_amd_device_attribute_query
     Num Compute units = 10
+  Nvidia GTX560
+    Extensions = OpenCL device : GeForce GTX 560
+cl_khr_byte_addressable_store cl_khr_icd cl_khr_gl_sharing cl_nv_compiler_options cl_nv_device_attribute_query cl_nv_pragma_unroll  cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics cl_khr_fp64
   Nvidia 8600GT
   Nvidia GT430
   Nvidia ION
@@ -30,43 +33,27 @@ CL_DEVICE_TYPE_CPU:
   Intel Core i7-2600
 
 RESULTS
-mandelbrot (fp64) benchmark:
+mandelbrot (fp64, 32workers, 128frames) benchmark:
 Occam (Intel Q6600 @ 3.0ghz):
-  real	0m29.562s
-  user	0m33.195s
-  sys	0m0.693s
-OpenCL (Intel Q6600 @ 3.0ghz + nvidia GT430):
-  real	0m27.468s
-  user	0m7.143s
-  sys	0m13.032s
+  real    0m17.877s
+  user    0m35.928s
+  sys     0m0.773s
+OpenCL (Intel Q6600 @ 3.0ghz + nvidia GTX560):
+  real    0m3.467s
+  user    0m0.780s
+  sys     0m1.013s
 C (Intel Q6600 @ 3.0ghz):
-  real	0m25.348s
-  user	0m6.306s
-  sys	0m0.650s
-Fred-lab-PC-Q9400 @ 2.66GHz
-  time = 22505 ms  (800 iters, 128 workers)
+  real    0m4.323s
+  user    0m3.230s
+  sys     0m0.670s
 
-mandelbrot (occoid) benchmark (-O2) 850 iterations:
-(Intel Q6600 @ 3.0ghz + nvidia GT430)
-New OpenCL implementation
-  real	0m22.248s
-  user	0m1.160s
-  sys	0m1.600s
-New C implemenatation
-  real	0m22.899s
-  user	0m3.210s
-  sys	0m0.720s
-Old OpenCL implementation
-  real	0m29.011s
-  user	0m7.486s
-  sys	0m13.882s
+
 
 mandebrot no disp
 (Intel Q6600 @ 3.0ghz + nvidia GT430)
 OpenCL implementationi (frame)
 C implementation (frame)
 Occam implementation (line)
-  time = 13635 ms
 
 
 CONCLUSION
