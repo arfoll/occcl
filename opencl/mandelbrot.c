@@ -8,6 +8,7 @@
 #include "mandelbrot.h"
 
 static int mandelbrot_init = 0;
+static int mandelbrot_cl_float;
 static cl_context *context;
 static cl_device_id *device;
 static cl_program prog;
@@ -69,9 +70,10 @@ void _initmandelbrot (int *w)
   init_mandelbrot();
 }
 
-int mandelbrot (cl_char (*data)[200], cl_fract *job) {
-  
+int mandelbrot (cl_char (*data)[200], cl_fract *job)
+{  
   cl_int error;
+  int i;
 
 #if ERROR_CHECK
   if (prog == NULL) {
@@ -92,7 +94,16 @@ int mandelbrot (cl_char (*data)[200], cl_fract *job) {
   // Allocate memory for the kernel to work with
   cl_mem mem1, mem2;
   mem1 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_char)*(IMAGEHEIGHT*IMAGEWIDTH*2), 0, &error);
-  mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_fract)*5, job, &error);
+
+  if (mandelbrot_cl_float) {
+    cl_float jobfloat[4];
+    for (i=0; i<4; i++)
+      jobfloat[i] = (cl_float) job[i];
+
+    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*4, jobfloat, &error);
+  } else {
+    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_fract)*4, job, &error);
+  }
   
   // get a handle and map parameters for the kernel
   error = clSetKernelArg(k_mandelbrot, 0, sizeof(cl_mem), &mem1);
@@ -116,7 +127,7 @@ int mandelbrot (cl_char (*data)[200], cl_fract *job) {
 
 #if C_PRINT
   // this will print a frame coming out of the CL kernel in a dirty but functional manner
-  int i,j;
+  int j;
   int colour = -1;
   for (i=0; i < IMAGEHEIGHT; i++) {
     for (j=0; j < IMAGEWIDTH*2; j++) {
@@ -161,7 +172,15 @@ int init_mandelbrot ()
   context = get_cl_context();
   device = get_cl_device();
 
-  FILE *fp = fopen("mandelbrot.cl", "r");
+  FILE *fp;
+  if (getCorrectDevice("cl_khr_fp64")) {
+    mandelbrot_cl_float = 1;
+    fp = fopen("mandelbrot_float.cl", "r");
+  }
+  else {
+    mandelbrot_cl_float = 0;
+    fp = fopen("mandelbrot.cl", "r");
+  }
   if (!fp) {
     fprintf(stderr, "Failed to load kernel.\n");
     return(1);
@@ -171,7 +190,7 @@ int init_mandelbrot ()
   fclose (fp);
   const char *srcptr[]={src};
 
-  // build CL program
+  // build CL program - -cl-fast-relaxed-math -cl-mad-enable
   error = buildcl (srcptr, &srcsize, &prog, "");
   // create kernel
   k_mandelbrot = clCreateKernel(prog, "mandelbrot", &error);

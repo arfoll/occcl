@@ -174,6 +174,24 @@ cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog, const ch
   return error;
 }
 
+int getCorrectDevice(char *requiredExt) {
+  int devicenum = 1;
+  while (!extSupported(requiredExt) && devicenum < getMaxDevices()) {
+    nextDevice();
+    fprintf (stdout, "========= CHANGED CL DEVICE =========\n");
+    printDeviceName();
+    printDevExt();
+    devicenum++;
+  }
+
+  if (extSupported(requiredExt)) {
+    return CL_SUCCESS;
+  } else {
+    fprintf (stdout, "no devices on this system support %s, which is a required extension\n", requiredExt);
+    return 1;
+  }
+}
+
 /**
  * Return the cl_context
  */

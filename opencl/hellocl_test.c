@@ -17,24 +17,6 @@
 #define PRINT_SIN 0
 #define PRINT_MANDEL 0
 
-int getCorrectDevice(char *requiredExt) {
-  int devicenum = 1;
-  while (!extSupported(requiredExt) && devicenum < getMaxDevices()) {
-    nextDevice();
-    fprintf (stdout, "========= CHANGED CL DEVICE =========\n");
-    printDeviceName();
-    printDevExt();
-    devicenum++;
-  }
-
-  if (extSupported(requiredExt)) {
-    return CL_SUCCESS;
-  } else {
-    fprintf (stdout, "no devices on this system support %s, which is a required extension\n", requiredExt);
-    return 1;
-  }
-}
-
 int mandelbrotTest(int verbose, int iterations) {
   cl_int error = CL_SUCCESS;
 #if 0

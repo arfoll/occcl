@@ -18,6 +18,7 @@ void printDeviceName();
 int extSupported(char *ext);
 void nextDevice();
 int getMaxDevices();
+int getCorrectDevice(char *requiredExt);
 cl_context* get_cl_context();
 cl_device_id* get_cl_device();
 cl_command_queue* get_command_queue();
