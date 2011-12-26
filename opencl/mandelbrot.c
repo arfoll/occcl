@@ -191,8 +191,8 @@ int init_mandelbrot ()
   fclose (fp);
   const char *srcptr[]={src};
 
-  // build CL program - -cl-fast-relaxed-math -cl-mad-enable
-  error = buildcl (srcptr, &srcsize, &prog, "");
+  // build CL program
+  error = buildcl (srcptr, &srcsize, &prog, "-cl-fast-relaxed-math -cl-mad-enable");
   // create kernel
   k_mandelbrot = clCreateKernel(prog, "mandelbrot", &error);
   // get the shared CQ
