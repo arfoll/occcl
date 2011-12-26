@@ -17,38 +17,25 @@
 #define PRINT_SIN 0
 #define PRINT_MANDEL 0
 
-int mandelbrotTest(int verbose, int iterations) {
+int mandelbrotTest() {
   cl_int error = CL_SUCCESS;
-#if 0
-  int i;
 
   fprintf (stdout, "========= MANDELBROT =========\n");
-  // mandelbrot initialisation
   error = init_mandelbrot();
   fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
-  // print some device info
   print_mandelbrot_kernel_info();
-  // run mandelbrot CL kernel against C mandelbrot func
-  cl_int width = 100;
-  //make job array with rawdata
-  cl_fract *job = (cl_fract*)malloc(sizeof(cl_fract)*5);
-  cl_fract rawdata[4] = {-25.000000, 534.086426, -0.271229, 1.159260};
-  for (i=0; i < 4; i++) {
-    job[i] = rawdata[i];
-  } 
-  // make char arrays and fill them with blank data
-  cl_char *chdata = (cl_char*)malloc(sizeof(cl_char)*width*2*50);
-  memset(chdata, 2, (sizeof(cl_char)*width*2*50));
+  cl_fract job[4] = {-25.000000, 534.086426, -0.271229, 1.159260};
+  cl_char *dataptr = (cl_char*)malloc(sizeof(cl_char)*100*2*50);
+  //memset(dataptr, 2, (sizeof(cl_char)*100*2*50));
+  cl_char (*chdata)[200] = (cl_char*) dataptr;
 
-  mandelbrot_c(chdata, job);
+  mandelbrot(chdata, &job[0]);
 
-  free (chdata);
-  free (job);
-#endif
+  free (dataptr);
   return error;
 }
 
-int moduloTest() {
+int moduloTest(int verbose, int iterations) {
   cl_int error;
 
   fprintf (stdout, "========= MODULO PRECISION TEST =========\n");

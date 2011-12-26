@@ -173,7 +173,8 @@ int init_mandelbrot ()
   device = get_cl_device();
 
   FILE *fp;
-  if (getCorrectDevice("cl_khr_fp64")) {
+  if (getCorrectDevice("cl_khr_fp64") != CL_SUCCESS) {
+    fprintf (stdout, "CL kernel will work in 32bit mode\n");
     mandelbrot_cl_float = 1;
     fp = fopen("mandelbrot_float.cl", "r");
   }

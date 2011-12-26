@@ -79,7 +79,7 @@ int main (int argc, char *argv[])
   }
 
   // Some general information
-  fprintf (stdout, "========= NEW CL DEVICE =========\n");
+  fprintf (stdout, "========= CL DEVICE =========\n");
   printDeviceName();
   printDevExt();
 
@@ -90,21 +90,23 @@ int main (int argc, char *argv[])
   if (!arguments.nocharext) {
     // Check device supports extensions we need for rot13 & mandelbrot
     if (getCorrectDevice("cl_khr_byte_addressable_store")) {
+      fprintf (stdout, "No devices supporting cl_khr_byte_addressable_store found.\n");
       return 2;
     }
 
     // ROT13
     rot13Test();
 
+    // MANDELBROT
+    mandelbrotTest(arguments.verbose, arguments.mandeliterations);
+
     if (getCorrectDevice("cl_khr_fp64")) {
+      fprintf (stdout, "No devices supporting cl_khr_fp64 found.\n");
       return 3;
     }
 
     // MODULO PRECISION
     moduloTest();
-
-    // MANDELBROT
-    mandelbrotTest(arguments.verbose, arguments.mandeliterations);
   }
 
   // cleaup cl
