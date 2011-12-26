@@ -86,6 +86,9 @@ int main (int argc, char *argv[])
   // SIN
   sinTest();
 
+  // OCCOIDS
+  occoidsTest();
+
   // check for --nocharext
   if (!arguments.nocharext) {
     // Check device supports extensions we need for rot13 & mandelbrot

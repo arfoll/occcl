@@ -6,7 +6,6 @@
  */
 
 #include "occoids.h"
-#define OCCOIDS_CL 0
 
 static int occoids_init = 0;
 static cl_context *context;
@@ -23,7 +22,7 @@ static cl_kernel k_occoids;
  */
 void _occoids (int *w)
 {
-#if OCCOIDS_CL
+#if CLOCCOIDS
   // need to get rid of the struct
   occoids ();
 #else

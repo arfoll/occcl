@@ -13,11 +13,12 @@
 #include "rot13.h"
 #include "mandelbrot.h"
 #include "modulo.h"
+#include "occoids.h"
 
 #define PRINT_SIN 0
 #define PRINT_MANDEL 0
 
-int mandelbrotTest() {
+int mandelbrotTest(int verbose, int iterations) {
   cl_int error = CL_SUCCESS;
 
   fprintf (stdout, "========= MANDELBROT =========\n");
@@ -35,8 +36,14 @@ int mandelbrotTest() {
   return error;
 }
 
-int moduloTest(int verbose, int iterations) {
-  cl_int error;
+int occoidsTest() {
+  cl_int error = CL_SUCCESS;
+
+  fprintf (stdout, "========= OCCOIDS TEST =========\n");
+}
+
+int moduloTest() {
+  cl_int error = CL_SUCCESS;
 
   fprintf (stdout, "========= MODULO PRECISION TEST =========\n");
   error = init_modulo();
@@ -52,7 +59,7 @@ int moduloTest(int verbose, int iterations) {
 }
 
 int sinTest() {
-  cl_int error;
+  cl_int error = CL_SUCCESS;
   int i;
 
   fprintf (stdout, "========= SIN =========\n");
@@ -81,7 +88,7 @@ int sinTest() {
 }
 
 int rot13Test() {
-  cl_int error;
+  cl_int error = CL_SUCCESS;
 
   fprintf (stdout, "========= ROT13 =========\n");
   // rot13 initialisation

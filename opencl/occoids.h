@@ -12,6 +12,8 @@
 
 #define MAX_SOURCE_SIZE (0x100000)
 
+#define CLOCCOIDS 0
+
 struct vector {
   float x;
   float y;

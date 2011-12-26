@@ -1,6 +1,10 @@
-hellocl
-hello
 *.swp
 *~
 *.o
 *.tce
+
+opencl/hellocl
+
+occam/hello
+occam/mandelbrot
+occam/occoids-single
