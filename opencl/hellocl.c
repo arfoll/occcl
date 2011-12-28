@@ -93,7 +93,7 @@ int main (int argc, char *argv[])
   if (!arguments.nocharext) {
     // Check device supports extensions we need for rot13 & mandelbrot
     if (getCorrectDevice("cl_khr_byte_addressable_store")) {
-      fprintf (stdout, "No devices supporting cl_khr_byte_addressable_store found.\n");
+      fprintf (stdout, "No devices supporting cl_khr_byte_addressable_store found - bypassing rot13, mandelbrot and modulot tests.\n");
       return 2;
     }
 
@@ -104,7 +104,7 @@ int main (int argc, char *argv[])
     mandelbrotTest(arguments.verbose, arguments.mandeliterations);
 
     if (getCorrectDevice("cl_khr_fp64")) {
-      fprintf (stdout, "No devices supporting cl_khr_fp64 found.\n");
+      fprintf (stdout, "No devices supporting cl_khr_fp64 found - bypassing modulo tests.\n");
       return 3;
     }
 

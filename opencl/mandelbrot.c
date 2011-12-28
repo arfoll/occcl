@@ -173,15 +173,7 @@ int init_mandelbrot ()
   device = get_cl_device();
 
   FILE *fp;
-  if (getCorrectDevice("cl_khr_fp64") != CL_SUCCESS) {
-    fprintf (stdout, "CL kernel will work in 32bit mode\n");
-    mandelbrot_cl_float = 1;
-    fp = fopen("mandelbrot_float.cl", "r");
-  }
-  else {
-    mandelbrot_cl_float = 0;
-    fp = fopen("mandelbrot.cl", "r");
-  }
+  fp = fopen("mandelbrot.cl", "r");
   if (!fp) {
     fprintf(stderr, "Failed to load kernel.\n");
     return(1);
@@ -191,8 +183,14 @@ int init_mandelbrot ()
   fclose (fp);
   const char *srcptr[]={src};
 
-  // build CL program
-  error = buildcl (srcptr, &srcsize, &prog, "-cl-fast-relaxed-math -cl-mad-enable");
+  // build CL program with a USE_DOUBLE define if we found the correct extension
+  if (getCorrectDevice("cl_khr_fp64") == CL_SUCCESS) {
+    error = buildcl (srcptr, &srcsize, &prog, "-D USE_DOUBLE -cl-fast-relaxed-math -cl-mad-enable");
+  }
+  else {
+    mandelbrot_cl_float = 1;
+    error = buildcl (srcptr, &srcsize, &prog, "-D USE_FLOAT -cl-fast-relaxed-math -cl-mad-enable");
+  }
   // create kernel
   k_mandelbrot = clCreateKernel(prog, "mandelbrot", &error);
   // get the shared CQ
