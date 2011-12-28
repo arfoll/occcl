@@ -5,7 +5,9 @@
  * Copyright 2011 - University of Kent
  */
 
-#pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable
+#ifndef cl_khr_byte_addressable_store
+    #error This kernel requires byte-addressable store
+#endif
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
 __kernel void mandelbrot (__global char (*data)[200], __global double *job)
