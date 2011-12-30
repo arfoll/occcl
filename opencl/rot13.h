@@ -10,6 +10,8 @@
 
 #include "initial.h"
 
+#define MAX_SOURCE_SIZE (0x100000)
+
 void _init_rot13 (int *w);
 void _rot13 (int *w);
 int rot13 (char* plaintext, char *ciphertext);

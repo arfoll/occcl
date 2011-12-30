@@ -92,8 +92,16 @@ int init_rot13 ()
   context = get_cl_context();
   device = get_cl_device();
 
-  const char *src=rot13_cl;
-  size_t srcsize=strlen(rot13_cl);
+  FILE *fp;
+  fp = fopen("rot13.cl", "r");
+  if (!fp) {
+    fprintf(stderr, "Failed to load kernel.\n");
+    return(1);
+  }
+
+  char *src = (char*) malloc (MAX_SOURCE_SIZE);
+  size_t srcsize = fread (src, 1, MAX_SOURCE_SIZE, fp);
+  fclose (fp);
   const char *srcptr[]={src};
 
   // build CL program
