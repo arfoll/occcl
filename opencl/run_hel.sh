@@ -4,4 +4,4 @@
 
 source /usr/bin/kroc-setup.sh
 
-./../occam/mandelbrot
+./../occam/hello

@@ -20,7 +20,7 @@ CL_DEVICE_TYPE_GPU:
     OpenCL 1.1 SDK = AMD APP SDK 2.5
     Extensions = cl_amd_fp64 cl_khr_gl_sharing cl_amd_device_attribute_query
     Num Compute units = 10
-  Nvidia GTX560
+  Nvidia GTX560 (GF114)
     Extensions = OpenCL device : GeForce GTX 560
 cl_khr_byte_addressable_store cl_khr_icd cl_khr_gl_sharing cl_nv_compiler_options cl_nv_device_attribute_query cl_nv_pragma_unroll  cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics cl_khr_fp64
   Nvidia 8600GT
@@ -46,8 +46,6 @@ C (Intel Q6600 @ 3.0ghz):
   real    0m4.323s
   user    0m3.230s
   sys     0m0.670s
-
-
 
 mandebrot no disp
 (Intel Q6600 @ 3.0ghz + nvidia GT430)
