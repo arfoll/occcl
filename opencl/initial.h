@@ -5,6 +5,9 @@
  * Copyright 2011 - University of Kent
  */
 
+#ifndef INITIAL_H
+#define INITIAL_H
+
 #include <occcl.h>
 
 #define NUM_DEVICES 2
@@ -23,3 +26,4 @@ cl_context* get_cl_context();
 cl_device_id* get_cl_device();
 cl_command_queue* get_command_queue();
 
+#endif

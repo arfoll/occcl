@@ -5,6 +5,9 @@
  * Copyright 2011 - University of Kent
  */
 
+#ifndef HELLO_TEST_H
+#define HELLO_TEST_H
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -20,3 +23,5 @@ int moduloTest();
 int sinTest();
 int rot13Test();
 int occoidsTest();
+
+#endif

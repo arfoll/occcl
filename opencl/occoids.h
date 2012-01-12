@@ -5,6 +5,9 @@
  * Copyright 2011 - University of Kent
  */
 
+#ifndef OCCOIDS_H
+#define OCCOIDS_H
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -34,3 +37,5 @@ int occoids (struct agentinfo ai, struct vector accel);
 int occoids_c (struct agentinfo ai, struct vector accel);
 int init_occoids ();
 cl_int print_occoids_kernel_info ();
+
+#endif

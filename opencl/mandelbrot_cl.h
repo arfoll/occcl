@@ -5,6 +5,9 @@
  * Copyright 2011 - University of Kent
  */
 
+#ifndef MANDELBROT_CL_H
+#define MANDELBROT_CL_H
+
 #ifdef __OPENCL_VERSION__
     #ifdef USE_DOUBLE
         #pragma OPENCL EXTENSION cl_khr_fp64 : enable
@@ -14,4 +17,6 @@
     #else
         #error "use -D USE_DOUBLE or -D USE_FLOAT."
     #endif
+#endif
+
 #endif

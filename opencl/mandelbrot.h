@@ -5,6 +5,9 @@
  * Copyright 2011 - University of Kent
  */
 
+#ifndef MANDELBROT_H
+#define MANDELBROT_H
+
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -37,3 +40,5 @@ int mandelbrot (cl_char (*data)[200], cl_fract *job);
 void mandelbrot_c (cl_char (*data)[200], cl_fract *job);
 int init_mandelbrot ();
 cl_int print_mandelbrot_kernel_info ();
+
+#endif
