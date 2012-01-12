@@ -12,7 +12,7 @@
 #endif
 
 #ifndef cl_khr_byte_addressable_store
-    #error This kernel requires byte-addressable store
+    #error "This kernel requires byte-addressable store"
 #endif
 
 __kernel void mandelbrot (__global char (*data)[200], __global floatcl *job)

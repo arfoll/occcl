@@ -40,6 +40,8 @@ int occoidsTest() {
   cl_int error = CL_SUCCESS;
 
   fprintf (stdout, "========= OCCOIDS TEST =========\n");
+
+  return error;
 }
 
 int moduloTest() {

@@ -1,13 +1,31 @@
 #INCLUDE "course.module"
 
+-- for occoids C implemantation test
+
+DATA TYPE VECTOR
+  RECORD
+    REAL32 x, y:
+:
+
+DATA TYPE AGENT.INFO
+  RECORD
+    INT local.id:
+    INT type:
+    VECTOR position, velocity:
+    REAL32 radius:
+    INT colour:
+:
+
+-- C functions that are called
 #PRAGMA EXTERNAL "PROC C.rot13 (VAL []BYTE plaintext, RESULT []BYTE ciphertext) = 0"
 #PRAGMA EXTERNAL "PROC C.initrot13 () = 0"
 #PRAGMA EXTERNAL "PROC C.mandelbrot (VAL []BYTE data, VAL []REAL64 job, VAL INT width) = 0"
 #PRAGMA EXTERNAL "PROC C.initmandelbrot () = 0"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
 #PRAGMA EXTERNAL "PROC C.destroycl () = 0"
-#PRAGMA EXTERNAL "PROC C.occoids () = 0"
+#PRAGMA EXTERNAL "PROC C.occoids (VAL []AGENT.INFO in, VAL VECTOR velocity, MOBILE []AGENT.INFO boids, obstacles) = 0"
 
+-- for occam mandelbrot
 DATA TYPE COMPLEX64
   RECORD
     REAL64 real, imag:
@@ -115,6 +133,35 @@ PROC mandelocc (CHAN BYTE out!)
     out.string ("*n", 0, out!)
 :
 
+PROC occoids (CHAN BYTE out!)
+  INT hello:
+  [1]AGENT.INFO in:
+  VECTOR velocity:
+  MOBILE [1]AGENT.INFO boids, obstacle:
+
+  -- VAL []AGENT.INFO in, VAL VECTOR velocity, MOBILE []AGENT.INFO boids, obstacles
+
+--    INT local.id:
+--    INT type:
+--    VECTOR position, velocity:
+--    REAL32 radius:
+--    INT colour:
+  SEQ
+    in[0][local.id] := 0
+    in[0][type] := 1
+    in[0][position][x] := 4.0
+    in[0][position][y] := 5.0
+    in[0][velocity][x] := 6.0
+    in[0][velocity][y] := 7.0
+    in[0][radius] := 2.0
+    in[0][colour] := 3
+
+    velocity[x] := 8.0
+    velocity[y] := 9.0
+
+    --C.occoids(in, velocity, boids, obstacle)
+:
+
 PROC hello (CHAN BYTE out!)
   SEQ
     out.string ("opencl occam test*n", 0, out!)
@@ -134,7 +181,7 @@ PROC hello (CHAN BYTE out!)
     out.string ("mandelbrot init over*n", 0, out!)
     mandel (out!)
 
-    C.occoids ()
+    occoids (out!)
 
     C.destroycl ()
 :
