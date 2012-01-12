@@ -9,7 +9,9 @@ OBJ_OCCOIDS = ../opencl/occoids.o ../opencl/printf.o
 build:
 	$(CC) hello.occ $(KROCOPT) ${OBJ} ${OBJ_HELLO}
 	$(CC) mandelbrot.occ $(KROCOPT) ${OBJ} ${OBJ_MAN}
+	$(CC) mandelbrot-bench.occ $(KROCOPT) ${OBJ} ${OBJ_MAN}
+	$(CC) mandelbrot-occam.occ
 	$(CC) occoids-single.occ $(KROCOPT) ${OBJ} ${OBJ_OCCOIDS}
 
 clean:
-	rm -f hello occoids-single mandelbrot 
+	rm -f hello occoids-single mandelbrot mandelbrot-bench

@@ -47,12 +47,14 @@ C (Intel Q6600 @ 3.0ghz):
   user    0m3.230s
   sys     0m0.670s
 
-mandebrot no disp
-(Intel Q6600 @ 3.0ghz + nvidia GT430)
-OpenCL implementationi (frame)
-C implementation (frame)
-Occam implementation (line)
-
+mandebrot no disp (gcc 4.6.2 with -O2
+  (Intel Q6600 @ 3.0ghz + nvidia GT430)
+  OpenCL implementation (frame - with opts -D USE_DOUBLE -cl-fast-relaxed-math -cl-mad-enable)
+    438ms
+  C implementation (frame)
+    2663ms
+  Occam implementation (line)
+    13413ms
 
 CONCLUSION
 

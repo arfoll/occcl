@@ -8,3 +8,5 @@ opencl/hellocl
 occam/hello
 occam/mandelbrot
 occam/occoids-single
+occam/mandelbrot-bench
+occam/mandelbrot-occam

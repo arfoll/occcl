@@ -34,11 +34,11 @@
 VAL INT IMAGE.WIDTH IS 100:
 VAL INT IMAGE.HEIGHT IS 50:
 
-VAL INT N.WORKERS IS 32:
+VAL INT N.WORKERS IS 4:
 VAL INT N.ITERS IS 850:
-VAL INT MAX.FRAMES IS 8:
+VAL INT MAX.FRAMES IS 256:
 
-VAL INT FRAME.SPEED IS 40000:
+VAL INT FRAME.SPEED IS 0:
 
 VAL INT LINES.PER.WORKER IS (IMAGE.HEIGHT / N.WORKERS):
 
@@ -164,7 +164,7 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
                   fcount[lbuf] := IMAGE.HEIGHT
                   --C.printfint (lbuf)
                   --{{{  dump framebuffer[lbuf]
-                  #IF TRUE
+                  #IF FALSE 
                   cursor.x.y (1, 1, scr!)
 
                   INITIAL BYTE cpix IS #FF:

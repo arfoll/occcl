@@ -4,7 +4,6 @@
 --	COMPLEX64 code Copyright (C) 1997 D.C. Wood <D.C.Wood@ukc.ac.uk>
 --      (distributed version, client)
 --	Modifications (C) 2001, 2007 Fred Barnes
---      Modifications for opencl (C) 2011 Brendan le Foll
 --
 --	This program is free software; you can redistribute it and/or modify
 --	it under the terms of the GNU General Public License as published by
@@ -24,28 +23,27 @@
 
 #INCLUDE "course.module"
 
-#PRAGMA EXTERNAL "PROC C.mandelbrot ([][]BYTE data, []REAL64 job) = 0"
-#PRAGMA EXTERNAL "PROC C.initmandelbrot () = 0"
-#PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
-#PRAGMA EXTERNAL "PROC C.printfjob (VAL []REAL64 job) = 0"
-#PRAGMA EXTERNAL "PROC C.printfint (VAL INT int) = 0"
-#PRAGMA EXTERNAL "PROC C.destroycl () = 0"
+
+DATA TYPE COMPLEX64
+  RECORD
+    REAL64 real, imag:
+:
 
 VAL INT IMAGE.WIDTH IS 100:
 VAL INT IMAGE.HEIGHT IS 50:
 
-VAL INT N.WORKERS IS 32:
-VAL INT N.ITERS IS 850:
+VAL INT N.WORKERS IS 128:
+VAL INT N.ITERS IS 800:
 VAL INT MAX.FRAMES IS 8:
 
-VAL INT FRAME.SPEED IS 40000:
+VAL INT FRAME.SPEED IS 0:
 
 VAL INT LINES.PER.WORKER IS (IMAGE.HEIGHT / N.WORKERS):
 
 VAL [][5]BYTE ansicolours IS ["*#1B[31m", "*#1B[32m", "*#1B[33m", "*#1B[36m", "*#1B[35m", "*#1B[34m"]:
 
 PROTOCOL P.JOB.IN IS INT; INT; [4]REAL64:
-PROTOCOL P.JOB.OUT IS INT; INT; [IMAGE.HEIGHT][IMAGE.WIDTH*2]BYTE:
+PROTOCOL P.JOB.OUT IS INT; INT; [IMAGE.WIDTH * 2]BYTE:
 
 CHAN TYPE CT.WORK.IN
   MOBILE RECORD
@@ -58,23 +56,62 @@ CHAN TYPE CT.WORK.OUT
     CHAN P.JOB.OUT out?:
 :
 
+REAL64 INLINE FUNCTION COMPLEX64ABSSQ (VAL COMPLEX64 x) IS
+  (x[real]*x[real]) + (x[imag]*x[imag]):
+
+COMPLEX64 INLINE FUNCTION "+" (VAL COMPLEX64 x, y) IS
+  [x[real] + y[real], x[imag] + y[imag]]:
+
+COMPLEX64 INLINE FUNCTION "**" (VAL COMPLEX64 x, y) IS
+  [(x[real]*y[real]) - (x[imag]*y[imag]),
+   (x[imag]*y[real]) + (x[real]*y[imag])]:
+
+
+INT FUNCTION calc (VAL COMPLEX64 a)
+  INT count:
+  VALOF
+    INITIAL COMPLEX64 iter IS [0.0, 0.0]:
+    SEQ
+      count := 0
+      WHILE ((COMPLEX64ABSSQ (iter) < 32.0) AND (count < 240))
+        SEQ
+          iter := (iter * iter) + a
+          count := count + 1
+    RESULT count
+:
+
 PROC worker (SHARED CT.WORK.IN! link.in, SHARED CT.WORK.OUT! link.out)
+  VAL []BYTE table IS [' ','.',',','*'','~','*"','^',':',';','|','&','[','$','%','@','#']:
   BOOL running:
   SEQ
+
+    SEQ i = 0 FOR 10000
+      RESCHEDULE ()
+
     running := TRUE
     WHILE running
       [4]REAL64 job:
-      [IMAGE.HEIGHT][IMAGE.WIDTH*2]BYTE output:
+      [IMAGE.WIDTH * 2]BYTE output:
       INT jobid, frame:
       SEQ
         CLAIM link.in
           link.in[in] ? frame; jobid; job
+
         IF
           (jobid = (-1)) OR (frame = (-1))
             running := FALSE
           TRUE
             SEQ
-              C.mandelbrot(output, job)
+              VAL REAL64 y IS (job[0] / job[1]) - job[2]:
+              SEQ i = 0 FOR IMAGE.WIDTH
+                VAL REAL64 x IS ((REAL64 TRUNC (i - (IMAGE.WIDTH / 2))) / (job[1] * 2.0)) - job[3]:
+                INT val:
+                SEQ
+                  val := calc ([x,y](COMPLEX64)) \ 16
+                  output[i*2] := BYTE (val \ 6)
+                  output[(i*2)+1] := table[val]
+                  RESCHEDULE ()
+
               CLAIM link.out
                 link.out[out] ! frame; jobid; output
 :
@@ -89,19 +126,22 @@ PROC farmer (CT.WORK.IN? link.in, CHAN INT tick!, tock?, kill!)
     SEQ n = 0 FOR N.ITERS
       SEQ
         --{{{  generate jobs
-        [4]REAL64 wpacket:
         SEQ
           tick ! n
           INT any:
           tock ? any
 
-          -- first value is 0 because it changes according to height
-          -- since we give the whole frame we work it out in C
-          wpacket[0] := (0.5)
-          wpacket[1] := zoom
-          wpacket[2] := y.drift
-          wpacket[3] := x.drift
-          link.in[in] ! n; 0; wpacket
+          SEQ j = 0 FOR IMAGE.HEIGHT
+            -- give out jobs
+            SEQ
+              [4]REAL64 wpacket:
+              SEQ
+                wpacket[0] := REAL64 TRUNC (j - (IMAGE.HEIGHT / 2))
+                wpacket[1] := zoom
+                wpacket[2] := y.drift
+                wpacket[3] := x.drift
+
+                link.in[in] ! n; j; wpacket
         --}}}
 
         zoom := zoom + (zoom / 32.0)
@@ -140,31 +180,20 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
     INITIAL BOOL running IS TRUE:
     WHILE running
       ALT
-        INT id, frame, calc:
-        link.out[out] ? frame; id; framebuffer[frame \ MAX.FRAMES]
-          INITIAL BOOL pr IS FALSE:
+        INT id, frame:
+        link.out[out] ? frame; id; framebuffer[frame \ MAX.FRAMES][id]
           SEQ
-            -- count should be decremented at every line we get but we get the whole frame
-            -- so we decrement by IMAGE.HEIGHT instead
-            calc := frame \ MAX.FRAMES
+            fcount[frame \ MAX.FRAMES] := fcount[frame \ MAX.FRAMES] - 1
             IF
-              frame = 51
-                SEQ
-                  pr := TRUE
-              TRUE
-                SKIP
-            --C.printfint(frame)
-            fcount[calc] := fcount[calc] - IMAGE.HEIGHT
-            IF
-              fcount[lframe \ MAX.FRAMES] = 0 -- this is the lowest frame in the buffer 
-                INITIAL INT lbuf IS (lframe \ MAX.FRAMES):  -- lowest frame is lbuf
+              fcount[lframe \ MAX.FRAMES] = 0
+                -- got all results for the lowest frame
+                INITIAL INT lbuf IS (lframe \ MAX.FRAMES):
                 SEQ
                   tim ? AFTER t
-                  -- reset fcount to IMAGE.HEIGHT
+
                   fcount[lbuf] := IMAGE.HEIGHT
-                  --C.printfint (lbuf)
                   --{{{  dump framebuffer[lbuf]
-                  #IF TRUE
+                  #IF FALSE
                   cursor.x.y (1, 1, scr!)
 
                   INITIAL BYTE cpix IS #FF:
@@ -178,10 +207,10 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
                             cpix <> v
                               SEQ
                                 cpix := v
-                                out.string (ansicolours[INT (cpix)], 0, scr!)
+                                out.string (ansicolours[INT cpix], 0, scr!)
                             TRUE
                               SKIP
-                          scr ! framebuffer[lbuf][j][((i*2)+1)]
+                          scr ! framebuffer[lbuf][j][(i*2)+1]
                       scr ! '*n'
                   -- normalise colour
                   out.string ("*#1B[0m", 0, scr!)
@@ -219,10 +248,6 @@ PROC mandelbrot (CHAN BYTE kyb?, scr!, err!)
     cursor.invisible (scr!)
     erase.screen (scr!)
 
-    -- initialise openCL and mandelbrot CL kernel
-    C.initialisecl()
-    C.initmandelbrot ()
-
     CHAN INT tick, tock, kill:
     PAR
       farmer (mwsvr.in, tick!, tock?, kill!)
@@ -231,7 +256,6 @@ PROC mandelbrot (CHAN BYTE kyb?, scr!, err!)
         worker (mwcli.in, mwcli.out)
 
     cursor.visible (scr!)
-    C.destroycl()
 :
 
 
