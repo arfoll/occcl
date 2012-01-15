@@ -15,7 +15,12 @@ static cl_program prog;
 static cl_kernel k_mandelbrot;
 static cl_command_queue *cq;
 
-cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
+static cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
+
+// TODO: split jobs into [850][5] array where [x][4] is y
+#define NUM_JOBS 4250
+
+cl_fract jobs[NUM_JOBS];
 
 void mandelbrot_c (cl_char (*data)[200], cl_fract *job)
 {
@@ -59,9 +64,9 @@ void _mandelbrot (int *w)
   // due to the [][] array w[1] is 50 and w[2] is 200
   // w[3] would be jobs
 #if CLMANDEL
-  mandelbrot (data, (cl_fract*) (w[3]));
+  mandelbrot (data, &jobs[w[3]*5]);
 #else
-  mandelbrot_c (data, (cl_fract*) (w[3]));
+  mandelbrot_c (data, &jobs[w[3]*5]);
 #endif
 }
 
@@ -162,6 +167,38 @@ cl_int print_mandelbrot_kernel_info ()
   return error;
 }
 
+/**
+ * Inialises the jobs array
+ */
+void initialiseJobs()
+{
+  int i, index;
+
+  cl_fract zoom = 16.0;
+  cl_fract xdrift = 0.0;
+  cl_fract ydrift = 0.0;
+  cl_fract diffx;
+  cl_fract diffy;
+  cl_fract xtarget = 1.16000014859;
+  cl_fract ytarget = -0.27140215303;
+
+  for (i = 0; i < 850; i++) {
+    index = i*5;
+    //jobs[0] = (frameid - idx)
+    jobs[index] = i; 
+    jobs[index+1] = zoom;
+    jobs[index+2] = ydrift;
+    jobs[index+3] = xdrift;
+//    jobs[index+4] = jobs[index]/job[index+1] - job[index+2];
+
+    zoom = zoom + (zoom / 32.0);
+    diffx = xtarget - xdrift;
+    diffy = ytarget - ydrift;
+    xdrift = xdrift + (diffx / 16.0);
+    ydrift = ydrift + (diffy / 16.0);
+  }
+}
+
 int init_mandelbrot ()
 {
   cl_int error;
@@ -195,6 +232,8 @@ int init_mandelbrot ()
   k_mandelbrot = clCreateKernel(prog, "mandelbrot", &error);
   // get the shared CQ
   cq = get_command_queue();
+
+  initialiseJobs();
 
   if (!error)
     mandelbrot_init = 1;
