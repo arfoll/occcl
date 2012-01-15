@@ -18,7 +18,8 @@ static cl_device_id *device;
 static cl_uint numdevices;
 static cl_uint currentdevice = 0;
 static cl_command_queue cq;
-cl_device_id devices[NUM_DEVICES];
+static cl_platform_id platform;
+static cl_device_id devices[NUM_DEVICES];
 
 /**
  * Occam-pi call for initialisecl
@@ -47,7 +48,6 @@ cl_int initialisecl()
   if (context == NULL) {
 #endif
     cl_int error;
-    cl_platform_id platform;
     cl_uint platforms;
     device = &devices[currentdevice];
 
@@ -115,7 +115,52 @@ void printDeviceName()
 {
   char deviceName[1024];
   clGetDeviceInfo((*device), CL_DEVICE_NAME, sizeof(deviceName), deviceName, NULL);
-  fprintf (stdout, "OpenCL device : %s\n",deviceName);
+  fprintf (stdout, "DEVICE NAME = %s\n",deviceName);
+}
+
+/**
+ * Print general platform information
+ */
+void printPlatformInfo()
+{
+  char buffer[10240];
+  clGetPlatformInfo(platform, CL_PLATFORM_PROFILE, 10240, buffer, NULL);
+  printf("PROFILE = %s\n", buffer);
+  clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 10240, buffer, NULL);
+  printf("VERSION = %s\n", buffer);
+  clGetPlatformInfo(platform, CL_PLATFORM_NAME, 10240, buffer, NULL);
+  printf("NAME = %s\n", buffer);
+  clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 10240, buffer, NULL);
+  printf("VENDOR = %s\n", buffer);
+  clGetPlatformInfo(platform, CL_PLATFORM_EXTENSIONS, 10240, buffer, NULL);
+  printf("EXTENSIONS = %s\n", buffer);
+}
+
+/**
+ * Print Some device info
+ */
+void printDevInfo()
+{
+  // opencl device info
+  int i;
+  for (i = 0; i < numdevices; i++) {
+    char buffer[10240];
+    cl_uint buf_uint;
+    cl_ulong buf_ulong;
+    printDeviceName();
+    clGetDeviceInfo(devices[i], CL_DEVICE_VENDOR, sizeof(buffer), buffer, NULL);
+    printf("DEVICE_VENDOR = %s\n", buffer);
+    clGetDeviceInfo(devices[i], CL_DEVICE_VERSION, sizeof(buffer), buffer, NULL);
+    printf("DEVICE_VERSION = %s\n", buffer);
+    clGetDeviceInfo(devices[i], CL_DRIVER_VERSION, sizeof(buffer), buffer, NULL);
+    printf("DRIVER_VERSION = %s\n", buffer);
+    clGetDeviceInfo(devices[i], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(buf_uint), &buf_uint, NULL);
+    printf("DEVICE_MAX_COMPUTE_UNITS = %u\n", (unsigned int)buf_uint);
+    clGetDeviceInfo(devices[i], CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(buf_uint), &buf_uint, NULL);
+    printf("DEVICE_MAX_CLOCK_FREQUENCY = %uMhz\n", (unsigned int)buf_uint);
+    clGetDeviceInfo(devices[i], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(buf_ulong), &buf_ulong, NULL);
+    printf("DEVICE_GLOBAL_MEM_SIZE = %lluMB\n", (unsigned long long)buf_ulong / BYTES_IN_MB);
+  }
 }
 
 /**

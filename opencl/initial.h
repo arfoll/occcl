@@ -10,7 +10,10 @@
 
 #include <occcl.h>
 
-#define NUM_DEVICES 2
+// Defines the maximum number of CL devices that will be recognised by occcl
+#define NUM_DEVICES 10
+// Number of bytes in a MB - used by printDevInfo
+#define BYTES_IN_MB 1048576
 
 cl_int initialisecl();
 cl_int destroycl();
@@ -18,6 +21,8 @@ cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog, const ch
 const char* errorMessageCL(cl_int error);
 void printDevExt();
 void printDeviceName();
+void printPlatformInfo();
+void printDevInfo();
 int extSupported(char *ext);
 void nextDevice();
 int getMaxDevices();

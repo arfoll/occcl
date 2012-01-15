@@ -17,17 +17,18 @@ static char args_doc[] = "ARG1 ARG2";
      
 /* The options we understand. */
 static struct argp_option options[] = {
-  {"nocharext",'c', 0, 0, "Stop tests that require cl_khr_byte_addressable_store", 0}, 
+  {"nocharext",        'c', 0, 0, "Stop tests that require cl_khr_byte_addressable_store", 0}, 
   {"mandeliterations", 'i', 0, 0, "Specify the amount of mandelbrot iterations to be done", 0},
-  {"verbose",  'v', 0, 0, "Produce verbose output", 0},
-  {"quiet",    'q', 0, 0, "Don't produce any output", 0},
+  {"verbose",          'v', 0, 0, "Produce verbose output", 0},
+  {"quiet",            'q', 0, 0, "Don't produce any output", 0},
+  {"deviceinfo",       'd', 0, 0, "Print detailed device info and exit"},
   {0, 0, 0, 0, 0, 0}
 };
      
 struct arguments
 {
   char *args[2];                /* arg1 & arg2 */
-  int silent, verbose, nocharext, mandeliterations;
+  int silent, verbose, nocharext, mandeliterations, info;
 };
 
 static error_t parse_opt (int key, char *arg, struct argp_state *state)
@@ -50,6 +51,9 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
     case 'i':
       arguments->mandeliterations = 8;
       break;
+    case 'd':
+      arguments->info = 1;
+      break;
     default:
       return ARGP_ERR_UNKNOWN;
   }
@@ -68,6 +72,7 @@ int main (int argc, char *argv[])
   arguments.verbose = 0;
   arguments.nocharext = 0;
   arguments.mandeliterations = 25;
+  arguments.info = 0;
 
   argp_parse (&argp, argc, argv, 0, 0, &arguments);
 
@@ -76,6 +81,13 @@ int main (int argc, char *argv[])
   if(error != CL_SUCCESS) {
     fprintf (stdout, "initialisecl() returned %s\n", errorMessageCL(error));
     return 1;
+  }
+
+  if (arguments.info) {
+    // Print all the info about the CL device
+    printPlatformInfo();
+    printDevInfo();
+    return CL_SUCCESS;
   }
 
   // Some general information
