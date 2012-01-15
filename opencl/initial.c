@@ -146,6 +146,7 @@ void printDevInfo()
   for (i = 0; i < numdevices; i++) {
     char buffer[10240];
     cl_uint buf_uint;
+    cl_uint buf_uintarray[128];
     cl_ulong buf_ulong;
     printDeviceName();
     clGetDeviceInfo(devices[i], CL_DEVICE_VENDOR, sizeof(buffer), buffer, NULL);
@@ -160,6 +161,10 @@ void printDevInfo()
     printf("DEVICE_MAX_CLOCK_FREQUENCY = %uMhz\n", (unsigned int)buf_uint);
     clGetDeviceInfo(devices[i], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(buf_ulong), &buf_ulong, NULL);
     printf("DEVICE_GLOBAL_MEM_SIZE = %lluMB\n", (unsigned long long)buf_ulong / BYTES_IN_MB);
+    clGetDeviceInfo(devices[i], CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(buf_uint), &buf_uint, NULL);
+    printf("CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS = %u\n", (unsigned int)buf_uint);
+    clGetDeviceInfo(devices[i], CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(cl_uint) * buf_uint, &buf_uintarray, NULL);
+    printf("CL_DEVICE_MAX_WORK_ITEM_SIZES = { %u, %u, %u }\n", buf_uintarray[0], buf_uintarray[1], buf_uintarray[2]);
   }
 }
 
