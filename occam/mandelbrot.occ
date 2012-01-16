@@ -34,13 +34,7 @@
 VAL INT IMAGE.WIDTH IS 100:
 VAL INT IMAGE.HEIGHT IS 50:
 
-VAL INT N.WORKERS IS 32:
 VAL INT N.ITERS IS 850:
-VAL INT MAX.FRAMES IS 128:
-
-VAL INT FRAME.SPEED IS 0:
-
-VAL INT LINES.PER.WORKER IS (IMAGE.HEIGHT / N.WORKERS):
 
 VAL [][5]BYTE ansicolours IS ["*#1B[31m", "*#1B[32m", "*#1B[33m", "*#1B[36m", "*#1B[35m", "*#1B[34m"]:
 
@@ -58,68 +52,36 @@ CHAN TYPE CT.WORK.OUT
     CHAN P.JOB.OUT out?:
 :
 
-PROC worker (SHARED CT.WORK.IN! link.in, SHARED CT.WORK.OUT! link.out)
-  BOOL running:
+PROC worker (SHARED CT.WORK.OUT! link.out, VAL INT frameid)
+  [IMAGE.HEIGHT][IMAGE.WIDTH*2]BYTE output:
   SEQ
-    running := TRUE
-    WHILE running
-      [IMAGE.HEIGHT][IMAGE.WIDTH*2]BYTE output:
-      INT frameid:
-      SEQ
-        CLAIM link.in
-          link.in[in] ? frameid
-        IF
-          (frameid = (-1))
-            running := FALSE
-          TRUE
-            SEQ
-              C.mandelbrot(output, frameid)
-              CLAIM link.out
-                link.out[out] ! frameid; 0; output
+    C.mandelbrot(output, frameid)
+    CLAIM link.out
+      link.out[out] ! frameid; 0; output
 :
 
-PROC farmer (CT.WORK.IN? link.in, CHAN INT tick!, tock?, kill!)
-  SEQ
-    SEQ n = 0 FOR N.ITERS
-      SEQ
-        -- we give just the frameid
-        link.in[in] ! n
-
-    --{{{  gracefully shut-down workers
-    SEQ n = 0 FOR N.WORKERS
-      INITIAL [4]REAL64 wpacket IS [i = 0 FOR 4 | 0.0]:
-      link.in[in] ! -1
-    --}}}
-
-    kill ! 0
-:
-
-PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE scr!)
-  [MAX.FRAMES][IMAGE.HEIGHT][IMAGE.WIDTH * 2]BYTE framebuffer:
-  [MAX.FRAMES]INT fcount:
+PROC harvester (CT.WORK.OUT? link.out, CHAN BYTE scr!)
+  [N.ITERS][IMAGE.HEIGHT][IMAGE.WIDTH * 2]BYTE framebuffer:
+  [N.ITERS]INT fcount:
   TIMER tim:
-  INT t, start, stop:
-  VAL INT frame.speed IS FRAME.SPEED:
+  INT start, stop:
   SEQ
     SEQ i = 0 FOR SIZE fcount
       fcount[i] := IMAGE.HEIGHT
 
-    tim ? t
-    start := t
-    t := t PLUS frame.speed
+    tim ? start
 
     INITIAL INT lframe IS 0:
-    INITIAL INT hframe IS 0:
     INITIAL BOOL running IS TRUE:
     WHILE running
       ALT
         INT id, frame, calc:
-        link.out[out] ? frame; id; framebuffer[frame \ MAX.FRAMES]
+        link.out[out] ? frame; id; framebuffer[frame \ N.ITERS]
           INITIAL BOOL pr IS FALSE:
           SEQ
             -- count should be decremented at every line we get but we get the whole frame
             -- so we decrement by IMAGE.HEIGHT instead
-            calc := frame \ MAX.FRAMES
+            calc := frame \ N.ITERS
             IF
               frame = 51
                 SEQ
@@ -129,10 +91,9 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
             --C.printfint(frame)
             fcount[calc] := fcount[calc] - IMAGE.HEIGHT
             IF
-              fcount[lframe \ MAX.FRAMES] = 0 -- this is the lowest frame in the buffer 
-                INITIAL INT lbuf IS (lframe \ MAX.FRAMES):  -- lowest frame is lbuf
+              fcount[lframe \ N.ITERS] = 0 -- this is the lowest frame in the buffer 
+                INITIAL INT lbuf IS (lframe \ N.ITERS):  -- lowest frame is lbuf
                 SEQ
-                  tim ? AFTER t
                   -- reset fcount to IMAGE.HEIGHT
                   fcount[lbuf] := IMAGE.HEIGHT
                   --C.printfint (lbuf)
@@ -162,16 +123,19 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
                   #ENDIF
                   --}}}
                   lframe := lframe + 1
-
-                  t := t PLUS frame.speed
+                  IF
+                    calc > (N.ITERS - 2)
+                      running := FALSE
+                    TRUE
+                      #IF FALSE
+                      SEQ
+                        out.int (calc, 0, scr!)
+                        out.string (" frames*n", 0, scr!)
+                      #ELSE
+                      SKIP
+                      #ENDIF
               TRUE
                 SKIP
-        (hframe <= (lframe + 4)) & tick ? hframe
-          tock ! hframe
-        INT any:
-        kill ? any
-          running := FALSE
-
     tim ? stop
 
     out.string ("time = ", 0, scr!)
@@ -186,7 +150,6 @@ PROC mandelbrot (CHAN BYTE kyb?, scr!, err!)
   SHARED CT.WORK.IN! mwcli.in:
   SHARED CT.WORK.OUT! mwcli.out:
   SEQ
-    mwsvr.in, mwcli.in := MOBILE CT.WORK.IN
     mwsvr.out, mwcli.out := MOBILE CT.WORK.OUT
 
     cursor.invisible (scr!)
@@ -196,12 +159,10 @@ PROC mandelbrot (CHAN BYTE kyb?, scr!, err!)
     C.initialisecl()
     C.initmandelbrot ()
 
-    CHAN INT tick, tock, kill:
     PAR
-      farmer (mwsvr.in, tick!, tock?, kill!)
-      harvester (mwsvr.out, tick?, tock!, kill?, scr!)
-      PAR i = 0 FOR N.WORKERS
-        worker (mwcli.in, mwcli.out)
+      harvester (mwsvr.out, scr!)
+      PAR i = 0 FOR N.ITERS
+        worker (mwcli.out, i)
 
     cursor.visible (scr!)
     C.destroycl()
