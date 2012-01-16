@@ -15,5 +15,5 @@ void textcolour(int attr)
 
   /* Command is the control command to the terminal */
   sprintf(command, "%c[%dm", 0x1B, colours[attr]);
-  fprintf(stdout, "%s", command);
+  fprintf(stderr, "%s", command);
 }

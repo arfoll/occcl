@@ -18,10 +18,11 @@
 #define MAX_SOURCE_SIZE (0x100000)
 #define IMAGEWIDTH 100
 #define IMAGEHEIGHT 50
+#define NFRAMES 850
 
 #define DEBUG 0
 #define CLMANDEL 1
-#define C_PRINT 0
+#define C_PRINT 0 
 #define DOUBLE 1
 
 #if DOUBLE
@@ -36,7 +37,7 @@ typedef cl_float cl_fract;
 
 void _mandelbrot (int *w);
 void _initmandelbrot (int *w);
-int mandelbrot (cl_char (*data)[200], cl_fract *job);
+int mandelbrot (cl_char (*data)[50][200]);
 void mandelbrot_c (cl_char (*data)[200], cl_fract *job);
 int init_mandelbrot ();
 cl_int print_mandelbrot_kernel_info ();

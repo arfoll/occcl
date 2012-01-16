@@ -15,8 +15,6 @@ static cl_program prog;
 static cl_kernel k_mandelbrot;
 static cl_command_queue *cq;
 
-static cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
-
 // TODO: split jobs into [850][5] array where [x][4] is y
 #define NUM_JOBS 4250
 cl_fract jobs[NUM_JOBS];
@@ -36,8 +34,6 @@ void _initmandelbrot (int *w)
 int mandelbrot (cl_char (*data)[50][200])
 {  
   cl_int error;
-  int i;
-
 #if ERROR_CHECK
   if (prog == NULL) {
     init_mandelbrot();
@@ -71,8 +67,9 @@ int mandelbrot (cl_char (*data)[50][200])
 
 #if C_PRINT
   // this will print a frame coming out of the CL kernel in a dirty but functional manner
-  int z, j;
+  int z, j, i;
   int colour = -1;
+  fprintf(stderr, "\033[H");
   for (z=0; z < NFRAMES; z++) {
     for (i=0; i < IMAGEHEIGHT; i++) {
       for (j=0; j < IMAGEWIDTH*2; j++) {
@@ -81,10 +78,11 @@ int mandelbrot (cl_char (*data)[50][200])
           textcolour(colour);
         }
         j++;
-        fprintf (stdout, "%c", data[z][i][j]);
+        fprintf (stderr, "%c", data[z][i][j]);
       }
-      fprintf(stdout, "\n");
+      fprintf(stderr, "\n");
     }
+    fprintf(stderr, "\033[H");
   }
 #endif
  
