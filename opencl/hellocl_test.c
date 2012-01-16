@@ -20,7 +20,7 @@
 
 int mandelbrotTest(int verbose, int iterations) {
   cl_int error = CL_SUCCESS;
-
+#if 0
   fprintf (stdout, "========= MANDELBROT =========\n");
   error = init_mandelbrot();
   fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
@@ -33,6 +33,7 @@ int mandelbrotTest(int verbose, int iterations) {
   mandelbrot(chdata, &job[0]);
 
   free (dataptr);
+#endif
   return error;
 }
 

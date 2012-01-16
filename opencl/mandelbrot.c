@@ -19,55 +19,13 @@ static cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 
 
 // TODO: split jobs into [850][5] array where [x][4] is y
 #define NUM_JOBS 4250
-
 cl_fract jobs[NUM_JOBS];
-
-void mandelbrot_c (cl_char (*data)[200], cl_fract *job)
-{
-  int j, i;
-
-  for (j = 0; j < IMAGEHEIGHT; j++) {
-    // calculate job[0] value
-    job[0] = (cl_fract) j - (IMAGEHEIGHT/2);
-    cl_fract y = job[0]/job[1] - job[2];
-
-#if DEBUG
-    fprintf (stderr, "native job0 = %f, job1 = %f, job2, %f, job3 %f, y = %f\n", job[0], job[1], job[2], job[3], y);
-#endif
-    for (i = 0; i < IMAGEWIDTH; i++) {
-      cl_fract real = ((i - IMAGEHEIGHT) / (job[1] * 2.0)) - job[3];
-      cl_fract imag = y;
-      cl_fract iter_real = 0.0;
-      cl_fract iter_imag = 0.0;
-      int count = 0;
-      while ((((iter_real*iter_real)+(iter_imag*iter_imag)) < 32.0) && (count < 240)) {
-        cl_fract iter_real2 = iter_real;
-        cl_fract iter_imag2 = iter_imag;
-        cl_fract iter_r;
-        cl_fract iter_i;
-        iter_r = (iter_real*iter_real2) - (iter_imag*iter_imag2);
-        iter_i = (iter_imag*iter_real2) + (iter_real*iter_imag2);
-        iter_real = real + iter_r;
-        iter_imag = imag + iter_i;
-        count++;
-      }
-      int val = count % 16;
-      data[j][i*2] = (char) (val % 6);
-      data[j][(i*2)+1] = table_int[val];
-    }
-  }
-}
 
 void _mandelbrot (int *w)
 { 
-  cl_char (*data)[200] = (cl_char*) w[0];
-  // due to the [][] array w[1] is 50 and w[2] is 200
-  // w[3] would be jobs
-#if CLMANDEL
-  mandelbrot (data, &jobs[w[3]*5]);
-#else
-  mandelbrot_c (data, &jobs[w[3]*5]);
-#endif
+  cl_char (*data)[IMAGEHEIGHT][IMAGEWIDTH*2] = (cl_char*) w[0];
+  // due to the [][][] array w[1] is 850, w[2] is 50, w[3] is 300
+  mandelbrot (data);
 }
 
 void _initmandelbrot (int *w)
@@ -75,7 +33,7 @@ void _initmandelbrot (int *w)
   init_mandelbrot();
 }
 
-int mandelbrot (cl_char (*data)[200], cl_fract *job)
+int mandelbrot (cl_char (*data)[50][200])
 {  
   cl_int error;
   int i;
@@ -86,39 +44,20 @@ int mandelbrot (cl_char (*data)[200], cl_fract *job)
   }
 #endif
 
-#if DEBUG
-  fprintf (stderr, "opencl job0 = %f, job1 = %f, job2, %f, job3 %f\n", 
-           job[0], job[1], job[2], job[3]);
-#endif
-
-#if 0 
-  // test initialise data
-  memset (data, 2,(IMAGEHEIGHT*IMAGEWIDTH*2)*sizeof(cl_char));
-#endif
-
   // Allocate memory for the kernel to work with
   cl_mem mem1, mem2;
-  mem1 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_char)*(IMAGEHEIGHT*IMAGEWIDTH*2), 0, &error);
-
-  if (mandelbrot_cl_float) {
-    cl_float jobfloat[4];
-    for (i=0; i<4; i++)
-      jobfloat[i] = (cl_float) job[i];
-
-    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*4, jobfloat, &error);
-  } else {
-    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_fract)*4, job, &error);
-  }
+  mem1 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_char)*(NFRAMES*IMAGEHEIGHT*IMAGEWIDTH*2), 0, &error);
+  mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_fract)*5*NFRAMES, jobs, &error);
   
   // get a handle and map parameters for the kernel
   error = clSetKernelArg(k_mandelbrot, 0, sizeof(cl_mem), &mem1);
   error = clSetKernelArg(k_mandelbrot, 1, sizeof(cl_mem), &mem2);
 
   // Perform the operation (width is 100 in this example)
-  size_t worksize[3] = {IMAGEHEIGHT, IMAGEWIDTH, 0};
-  error = clEnqueueNDRangeKernel(*cq, k_mandelbrot, 2, NULL, &worksize[0], 0, 0, 0, 0);
+  size_t worksize[3] = {NFRAMES, IMAGEWIDTH, IMAGEHEIGHT};
+  error = clEnqueueNDRangeKernel(*cq, k_mandelbrot, 3, NULL, &worksize[0], 0, 0, 0, 0);
   // Read the result back into data
-  error = clEnqueueReadBuffer(*cq, mem1, CL_TRUE, 0, (size_t) (IMAGEHEIGHT*IMAGEWIDTH*2), data, 0, 0, 0);
+  error = clEnqueueReadBuffer(*cq, mem1, CL_TRUE, 0, (size_t) (NFRAMES*IMAGEHEIGHT*IMAGEWIDTH*2), data, 0, 0, 0);
 
   // cleanup - don't perform a flush as the queue is now shared between all executions. The
   // blocking clEnqueueReadBuffer should be enough
@@ -132,18 +71,20 @@ int mandelbrot (cl_char (*data)[200], cl_fract *job)
 
 #if C_PRINT
   // this will print a frame coming out of the CL kernel in a dirty but functional manner
-  int j;
+  int z, j;
   int colour = -1;
-  for (i=0; i < IMAGEHEIGHT; i++) {
-    for (j=0; j < IMAGEWIDTH*2; j++) {
-      if (colour != data[i][j]) {
-        colour = data[i][j];
-        textcolour(colour);
+  for (z=0; z < NFRAMES; z++) {
+    for (i=0; i < IMAGEHEIGHT; i++) {
+      for (j=0; j < IMAGEWIDTH*2; j++) {
+        if (colour != data[z][i][j]) {
+          colour = data[z][i][j];
+          textcolour(colour);
+        }
+        j++;
+        fprintf (stdout, "%c", data[z][i][j]);
       }
-      j++;
-      fprintf (stdout, "%c", data[i][j]);
+      fprintf(stdout, "\n");
     }
-    fprintf(stdout, "\n");
   }
 #endif
  

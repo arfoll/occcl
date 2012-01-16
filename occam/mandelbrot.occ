@@ -24,7 +24,7 @@
 
 #INCLUDE "course.module"
 
-#PRAGMA EXTERNAL "PROC C.mandelbrot ([][]BYTE data, VAL INT frameid) = 0"
+#PRAGMA EXTERNAL "PROC C.mandelbrot ([][][]BYTE data) = 0"
 #PRAGMA EXTERNAL "PROC C.initmandelbrot () = 0"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
 #PRAGMA EXTERNAL "PROC C.printfjob (VAL []REAL64 job) = 0"
@@ -38,104 +38,39 @@ VAL INT N.ITERS IS 850:
 
 VAL [][5]BYTE ansicolours IS ["*#1B[31m", "*#1B[32m", "*#1B[33m", "*#1B[36m", "*#1B[35m", "*#1B[34m"]:
 
-PROTOCOL P.JOB.IN IS INT:
-PROTOCOL P.JOB.OUT IS INT; INT; [IMAGE.HEIGHT][IMAGE.WIDTH*2]BYTE:
-
-CHAN TYPE CT.WORK.IN
-  MOBILE RECORD
-    CHAN INT notify?:
-    CHAN P.JOB.IN in!:
-:
-
-CHAN TYPE CT.WORK.OUT
-  MOBILE RECORD
-    CHAN P.JOB.OUT out?:
-:
-
-PROC worker (SHARED CT.WORK.OUT! link.out, VAL INT frameid)
-  [IMAGE.HEIGHT][IMAGE.WIDTH*2]BYTE output:
-  SEQ
-    C.mandelbrot(output, frameid)
-    CLAIM link.out
-      link.out[out] ! frameid; 0; output
-:
-
-PROC harvester (CT.WORK.OUT? link.out, CHAN BYTE scr!)
+PROC harvester (CHAN BYTE scr!)
   [N.ITERS][IMAGE.HEIGHT][IMAGE.WIDTH * 2]BYTE framebuffer:
-  [N.ITERS]INT fcount:
   TIMER tim:
   INT start, stop:
   SEQ
-    SEQ i = 0 FOR SIZE fcount
-      fcount[i] := IMAGE.HEIGHT
-
     tim ? start
+    C.mandelbrot(framebuffer)
 
-    INITIAL INT lframe IS 0:
-    INITIAL BOOL running IS TRUE:
-    WHILE running
-      ALT
-        INT id, frame, calc:
-        link.out[out] ? frame; id; framebuffer[frame \ N.ITERS]
-          INITIAL BOOL pr IS FALSE:
+    #IF FALSE
+    SEQ frame = 0 FOR N.ITERS
+      SEQ
+        cursor.x.y (1, 1, scr!)
+        INITIAL BYTE cpix IS #FF:
+        SEQ j = 0 FOR IMAGE.HEIGHT
           SEQ
-            -- count should be decremented at every line we get but we get the whole frame
-            -- so we decrement by IMAGE.HEIGHT instead
-            calc := frame \ N.ITERS
-            IF
-              frame = 51
-                SEQ
-                  pr := TRUE
-              TRUE
-                SKIP
-            --C.printfint(frame)
-            fcount[calc] := fcount[calc] - IMAGE.HEIGHT
-            IF
-              fcount[lframe \ N.ITERS] = 0 -- this is the lowest frame in the buffer 
-                INITIAL INT lbuf IS (lframe \ N.ITERS):  -- lowest frame is lbuf
-                SEQ
-                  -- reset fcount to IMAGE.HEIGHT
-                  fcount[lbuf] := IMAGE.HEIGHT
-                  --C.printfint (lbuf)
-                  --{{{  dump framebuffer[lbuf]
-                  #IF FALSE
-                  cursor.x.y (1, 1, scr!)
-
-                  INITIAL BYTE cpix IS #FF:
-                  SEQ j = 0 FOR IMAGE.HEIGHT
+            SEQ i = 0 FOR IMAGE.WIDTH
+              BYTE v:
+              SEQ
+                v := framebuffer[frame][j][i*2]
+                IF
+                  cpix <> v
                     SEQ
-                      SEQ i = 0 FOR IMAGE.WIDTH
-                        BYTE v:
-                        SEQ
-                          v := framebuffer[lbuf][j][i*2]
-                          IF
-                            cpix <> v
-                              SEQ
-                                cpix := v
-                                out.string (ansicolours[INT (cpix)], 0, scr!)
-                            TRUE
-                              SKIP
-                          scr ! framebuffer[lbuf][j][((i*2)+1)]
-                      scr ! '*n'
-                  -- normalise colour
-                  out.string ("*#1B[0m", 0, scr!)
-                  flush (scr!)
-                  #ENDIF
-                  --}}}
-                  lframe := lframe + 1
-                  IF
-                    calc > (N.ITERS - 2)
-                      running := FALSE
-                    TRUE
-                      #IF FALSE
-                      SEQ
-                        out.int (calc, 0, scr!)
-                        out.string (" frames*n", 0, scr!)
-                      #ELSE
-                      SKIP
-                      #ENDIF
-              TRUE
-                SKIP
+                      cpix := v
+                      out.string (ansicolours[INT (cpix)], 0, scr!)
+                  TRUE
+                    SKIP
+                scr ! framebuffer[frame][j][((i*2)+1)]
+            scr ! '*n'
+        -- normalise colour
+        out.string ("*#1B[0m", 0, scr!)
+        flush (scr!)
+    #ENDIF
+
     tim ? stop
 
     out.string ("time = ", 0, scr!)
@@ -145,13 +80,7 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN BYTE scr!)
 
 
 PROC mandelbrot (CHAN BYTE kyb?, scr!, err!)
-  CT.WORK.IN? mwsvr.in:
-  CT.WORK.OUT? mwsvr.out:
-  SHARED CT.WORK.IN! mwcli.in:
-  SHARED CT.WORK.OUT! mwcli.out:
   SEQ
-    mwsvr.out, mwcli.out := MOBILE CT.WORK.OUT
-
     cursor.invisible (scr!)
     erase.screen (scr!)
 
@@ -159,10 +88,7 @@ PROC mandelbrot (CHAN BYTE kyb?, scr!, err!)
     C.initialisecl()
     C.initmandelbrot ()
 
-    PAR
-      harvester (mwsvr.out, scr!)
-      PAR i = 0 FOR N.ITERS
-        worker (mwcli.out, i)
+    harvester (scr!)
 
     cursor.visible (scr!)
     C.destroycl()
