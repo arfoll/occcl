@@ -716,7 +716,7 @@ PROC main (SHARED CHAN BYTE err!)
         IF
           (SIZE infos) > 0
             SEQ
-              SEQ i = 0 FOR SIZE infos 
+              SEQ i = 0 FOR SIZE infos
                 com := com + infos[i][position]
               com := com / (REAL32 ROUND (SIZE infos))
           TRUE
@@ -844,7 +844,7 @@ PROC main (SHARED CHAN BYTE err!)
         C.printfint (SIZE raw.infos)
         C.occoids ((SIZE raw.infos), raw.infos)
         size := (SIZE raw.infos)
-        IF 
+        IF
           (size) = 0
             SKIP
           (size) = 1

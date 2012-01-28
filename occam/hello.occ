@@ -3,12 +3,12 @@
 -- for occoids C implemantation test
 
 DATA TYPE VECTOR
-  RECORD
+  PACKED RECORD
     REAL32 x, y:
 :
 
 DATA TYPE AGENT.INFO
-  RECORD
+  PACKED RECORD
     INT local.id:
     INT type:
     VECTOR position, velocity:
@@ -23,7 +23,8 @@ DATA TYPE AGENT.INFO
 #PRAGMA EXTERNAL "PROC C.initmandelbrot () = 0"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
 #PRAGMA EXTERNAL "PROC C.destroycl () = 0"
-#PRAGMA EXTERNAL "PROC C.occoids (VAL []AGENT.INFO in, VAL VECTOR velocity, MOBILE []AGENT.INFO boids, obstacles) = 0"
+--#PRAGMA EXTERNAL "PROC C.occoids (VAL []AGENT.INFO in, VAL VECTOR velocity, MOBILE []AGENT.INFO boids, obstacles) = 0"
+#PRAGMA EXTERNAL "PROC C.occoids (VAL VECTOR velocity) = 0"
 
 -- for occam mandelbrot
 DATA TYPE COMPLEX64
@@ -32,7 +33,7 @@ DATA TYPE COMPLEX64
 :
 
 PROC rot13 (VAL []BYTE plaintext, CHAN BYTE out!)
-  [17]BYTE ciphertext: 
+  [17]BYTE ciphertext:
   SEQ
     C.rot13 (plaintext, ciphertext)
     out.string (ciphertext, 0, out!)
@@ -41,8 +42,8 @@ PROC rot13 (VAL []BYTE plaintext, CHAN BYTE out!)
 PROC occrot13 (VAL []BYTE p, CHAN BYTE out!)
   [17]BYTE c:
   SEQ
-    PAR i = 0 FOR 17 
-      IF 
+    PAR i = 0 FOR 17
+      IF
         (p[i] >= 'a') AND (p[i] <= 'z')
           SEQ
             c[i] := p[i] - 'a'
@@ -53,7 +54,7 @@ PROC occrot13 (VAL []BYTE p, CHAN BYTE out!)
             c[i] := ((c[i] + 13) \ 26) + 'a'
         TRUE
           c[i] := ' '
-      
+
     out.string (c, 0, out!)
 :
 
@@ -66,7 +67,7 @@ PROC mandel (CHAN BYTE out!)
       PAR i = 0 FOR width
         data[i] := BYTE i
       PAR i = 0 FOR 4
-        job[i] := REAL64 TRUNC i 
+        job[i] := REAL64 TRUNC i
     C.mandelbrot (data, job, width)
     SEQ i = 0 FOR width*2
       out.byte (data[i], 0, out!)
@@ -112,7 +113,7 @@ PROC mandelocc (CHAN BYTE out!)
       out.string("*n", 0, out!)
     -- init over
     VAL REAL64 y IS (job[0] / job[1]) - job[2]:
-    SEQ i = 0 FOR width 
+    SEQ i = 0 FOR width
       VAL REAL64 x IS ((REAL64 TRUNC (i - (width / 2))) / (job[1] * 2.0)) - job[3]:
       INT val:
       SEQ
@@ -134,10 +135,12 @@ PROC mandelocc (CHAN BYTE out!)
 :
 
 PROC occoids (CHAN BYTE out!)
-  INT hello:
   [1]AGENT.INFO in:
+  --VECTOR velocity:
   VECTOR velocity:
-  MOBILE [1]AGENT.INFO boids, obstacle:
+  INITIAL MOBILE []AGENT.INFO in IS MOBILE [1]AGENT.INFO:
+  INITIAL MOBILE []AGENT.INFO boid.infos IS MOBILE [1]AGENT.INFO:
+  INITIAL MOBILE []AGENT.INFO obstacle.infos IS MOBILE [1]AGENT.INFO:
 
   -- VAL []AGENT.INFO in, VAL VECTOR velocity, MOBILE []AGENT.INFO boids, obstacles
 
@@ -156,10 +159,11 @@ PROC occoids (CHAN BYTE out!)
     in[0][radius] := 2.0
     in[0][colour] := 3
 
-    velocity[x] := 8.0
-    velocity[y] := 9.0
+    velocity[x] := 8.1
+    velocity[y] := 8.2
 
-    --C.occoids(in, velocity, boids, obstacle)
+--    C.occoids(in, velocity, boid.infos, obstacle.infos)
+    C.occoids(velocity)
 :
 
 PROC hello (CHAN BYTE out!)
@@ -175,11 +179,11 @@ PROC hello (CHAN BYTE out!)
     occrot13 ("opencl is awesome", out!)
     out.string ("*c*n", 0, out!)
 
-    mandelocc(out!)
-    out.string ("start mandelbrot*n", 0, out!)
-    C.initmandelbrot ()
-    out.string ("mandelbrot init over*n", 0, out!)
-    mandel (out!)
+--    mandelocc(out!)
+--    out.string ("start mandelbrot*n", 0, out!)
+--    C.initmandelbrot ()
+--    out.string ("mandelbrot init over*n", 0, out!)
+--    mandel (out!)
 
     occoids (out!)
 

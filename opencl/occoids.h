@@ -1,4 +1,4 @@
-/* Simple library meant to be called from occam that serves as proof 
+/* Simple library meant to be called from occam that serves as proof
  * of concept for occam -> C/opencl interopability
  *
  * Copyright 2011 - Brendan Le Foll - brendan@fridu.net
@@ -17,24 +17,24 @@
 
 #define CLOCCOIDS 0
 
-struct vector {
+typedef struct {
   float x;
   float y;
-};
+} vector;
 
-struct agentinfo {
+typedef struct {
   int localid;
   int type;
-  struct vector position;
-  struct vector velocity;
+  vector position;
+  vector velocity;
   float radius;
   int colour;
-};
+} agentinfo;
 
 void _occoids (int *w);
 void _initoccoids (int *w);
-int occoids (struct agentinfo ai, struct vector accel);
-int occoids_c (struct agentinfo ai, struct vector accel);
+int occoids (agentinfo ai, vector accel);
+int occoids_c (agentinfo ai, vector accel);
 int init_occoids ();
 cl_int print_occoids_kernel_info ();
 

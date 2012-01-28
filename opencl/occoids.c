@@ -1,4 +1,4 @@
-/* Simple library meant to be called from occam that serves as proof 
+/* Simple library meant to be called from occam that serves as proof
  * of concept for occam -> C/opencl interopability
  *
  * Copyright 2011 - Brendan Le Foll - brendan@fridu.net
@@ -6,6 +6,8 @@
  */
 
 #include "occoids.h"
+#include <stdio.h>
+#include <string.h>
 
 static int occoids_init = 0;
 static cl_context *context;
@@ -22,17 +24,24 @@ static cl_kernel k_occoids;
  */
 void _occoids (int *w)
 {
+#if 0
+  //fprintf (stdout, "x : %f, y : %f, %f, %f, %f, %f\n", (float) w[0], (float) w[1], (float) w[2], (float) w[3], (float) w[4], (float) w[5]);
+  int i;
+  for (i=0; i < 10; i++) {
+    fprintf (stdout, "%f, ", (float) w[i]);
+  }
+  fprintf (stdout, "\n");
+  vector velocity = {1.0, 1.0};
+  memcpy (&velocity, w, sizeof(vector));
+  fprintf (stdout, "velocity = %f, %f", velocity.x, velocity.y);
+#else
+  vector *a = w[0];
+  fprintf (stdout, "x : %f, y : %f\n", a->x, a->y);
+#endif
 #if CLOCCOIDS
   // need to get rid of the struct
-  occoids ();
+  //occoids ();
 #else
-  int size = (int) w[0];
-  if (size != 1 && size != 0) {
-    fprintf (stderr, "size is %d\n", size);
-    fprintf (stderr, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n", (int) w[1], (int) w[2], (int) w[3], (int) w[4], (int) w[5], (int) w[6], (int) w[7], (int) w[8], (int) w[9], (int) w[10]);
-    fprintf (stderr, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", (float) w[1], (float) w[2], (float) w[3], (float) w[4], (float) w[5], (float) w[6], (float) w[7], (float) w[8], (float) w[9], (float) w[10]);
-    exit(0);
-  }
   //occoids_c ();
 #endif
 }
@@ -42,16 +51,16 @@ void _initoccoids (int *w)
   init_occoids ();
 }
 
-int occoids_c (struct agentinfo ai, struct vector accel)
+int occoids_c (agentinfo ai, vector accel)
 {
 
   return 0;
 }
 
-int occoids (struct agentinfo ai, struct vector accel)
+int occoids (agentinfo ai, vector accel)
 {
 #if 0
-  
+
   cl_int error;
 
 #if ERROR_CHECK
@@ -65,7 +74,7 @@ int occoids (struct agentinfo ai, struct vector accel)
   mem1 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_char)*(width*2), 0, &error);
 //  mem1 = clCreateBuffer(*context, CL_MEM_USE_HOST_PTR, sizeof(cl_char)*(width*2), data, &error);
   mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*5, job, &error);
-  
+
   // get a handle and map parameters for the kernel
   error = clSetKernelArg(k_occoids, 0, sizeof(cl_mem), &mem1);
   error = clSetKernelArg(k_occoids, 1, sizeof(cl_mem), &mem2);

@@ -224,10 +224,21 @@ cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog, const ch
   return error;
 }
 
+#if 0
+/**
+ * Get cl kernel profiling info so that opencl kernel binary can be dumped
+ */
+cl_int getProfilingInfo()
+{
+  clGetEventProfilingInfo(event, 
+}
+#endif
+
 /**
  *
  */
-int getCorrectDevice(char *requiredExt) {
+int getCorrectDevice(char *requiredExt)
+{
   int devicenum = 1;
   while (!extSupported(requiredExt) && devicenum < getMaxDevices()) {
     nextDevice();
