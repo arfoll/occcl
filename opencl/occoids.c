@@ -35,8 +35,22 @@ void _occoids (int *w)
   memcpy (&velocity, w, sizeof(vector));
   fprintf (stdout, "velocity = %f, %f", velocity.x, velocity.y);
 #else
-  vector *a = w[0];
-  fprintf (stdout, "x : %f, y : %f\n", a->x, a->y);
+  // in array
+  int i;
+  int arrsize = w[1];
+  agentinfo *ai = w[0];
+  //agentinfo *ai = arr[0];
+  for (i=0; i<arrsize; i++) {
+    //vector *pos = ai->position;
+    //vector *vel = ai->velocity;
+    fprintf (stdout, "localid = %d, type = %d, pos.x = %f, pos.y = %f, vel.x = %f, vel.y = %f, radius = %f, colour = %d\n", ai->localid, ai->type, ai->position.x, ai->position.y, ai->velocity.x, ai->velocity.y, ai->radius, ai->colour);
+    // go to the next ai struct
+    ai++;
+  }
+
+  // individual velocity
+  vector *velocity = w[2];
+  fprintf (stdout, "x = %f, y = %f\n", velocity->x, velocity->y);
 #endif
 #if CLOCCOIDS
   // need to get rid of the struct
