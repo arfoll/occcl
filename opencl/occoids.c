@@ -18,45 +18,35 @@ static cl_kernel k_occoids;
 
 /**
  * Maps *w into something we can use in C
- * w[0] = size
- * w[1] = float
- * w[2] = int (size)
  */
 void _occoids (int *w)
 {
-#if 0
-  //fprintf (stdout, "x : %f, y : %f, %f, %f, %f, %f\n", (float) w[0], (float) w[1], (float) w[2], (float) w[3], (float) w[4], (float) w[5]);
-  int i;
-  for (i=0; i < 10; i++) {
-    fprintf (stdout, "%f, ", (float) w[i]);
-  }
-  fprintf (stdout, "\n");
-  vector velocity = {1.0, 1.0};
-  memcpy (&velocity, w, sizeof(vector));
-  fprintf (stdout, "velocity = %f, %f", velocity.x, velocity.y);
-#else
-  // in array
+#if DEBUG
   int i;
   int arrsize = w[1];
   agentinfo *ai = w[0];
-  //agentinfo *ai = arr[0];
+  vector *velocity = w[2];
   for (i=0; i<arrsize; i++) {
     //vector *pos = ai->position;
     //vector *vel = ai->velocity;
-    fprintf (stdout, "localid = %d, type = %d, pos.x = %f, pos.y = %f, vel.x = %f, vel.y = %f, radius = %f, colour = %d\n", ai->localid, ai->type, ai->position.x, ai->position.y, ai->velocity.x, ai->velocity.y, ai->radius, ai->colour);
+    fprintf (stderr, "localid = %d, type = %d, pos.x = %f, pos.y = %f, " \
+             "vel.x = %f, vel.y = %f, radius = %f, colour = %d, x = %f, y = %f\n",
+             ai->localid, ai->type, ai->position.x, ai->position.y,
+             ai->velocity.x, ai->velocity.y, ai->radius, ai->colour,
+             velocity->x, velocity->y);
     // go to the next ai struct
     ai++;
   }
-
-  // individual velocity
+#else
+  int arrsize = w[1];
+  agentinfo *ai = w[0];
   vector *velocity = w[2];
-  fprintf (stdout, "x = %f, y = %f\n", velocity->x, velocity->y);
 #endif
 #if CLOCCOIDS
   // need to get rid of the struct
   //occoids ();
 #else
-  //occoids_c ();
+  occoids_c (ai, velocity, arrsize);
 #endif
 }
 
@@ -65,13 +55,68 @@ void _initoccoids (int *w)
   init_occoids ();
 }
 
-int occoids_c (agentinfo ai, vector accel)
+/**
+ * Returns the magnitude of a vector
+ */
+cl_float magnitute2 (vector *ve)
 {
+  return (ve->x * ve->x) + (ve->y * ve->y);
+}
+
+/**
+ * function emulates the can.see function in occam
+ */
+int cansee (agentinfo *info, vector *velocity)
+{
+  #define TRUE 0
+  #define FALSE 1
+  #define ATCYLINDER 2
+  #define VISIONRADIUS 0.25
+  #define VISIONANGLE 200.0
+
+  if (magnitute2(&info->position) > (VISIONRADIUS*VISIONANGLE)) {
+    return FALSE;
+  }
+  else if (info->type == ATCYLINDER) {
+    return TRUE;
+  }
+  else if (magnitute2(velocity) < 0.00000) {
+    return TRUE;
+  }
+#if 0  
+  elif () {
+    return FALSE;
+  }
+#endif
+  else {
+    return TRUE;
+  }
+}
+
+/**
+ * for now this emulates the start of the filter.infos() PROC and returns
+ * n.boids and n.obstacles
+ * TODO: the rest of the function
+ */
+int occoids_c (agentinfo *ai, vector *accel, int size)
+{
+  int i;
+  int nboids = 0;
+  int nobstacles = 0;
+  for (i=0; i<size; i++) {
+    if (cansee(ai, accel)) {
+      if (ai->type == 1)
+        *nboids++;
+      else if (ai->type == 2)
+        *nobstacles++;
+    }
+    ai++;
+  }
 
   return 0;
 }
 
-int occoids (agentinfo ai, vector accel)
+int occoids (agentinfo *ai, vector *accel, int size)
 {
 #if 0
 

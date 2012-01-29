@@ -90,7 +90,8 @@ DATA TYPE AGENT.INFO
 -- pack the data as INT[3], REAL32[7]
 -- local.id, type, colour
 -- position.x, position.y, velocity.x, velocity.y, radius, accel.x, accel.y
-#PRAGMA EXTERNAL "PROC C.occoids (VAL INT size, VAL []AGENT.INFO ag) = 0"
+--#PRAGMA EXTERNAL "PROC C.occoids (VAL INT size, VAL []AGENT.INFO ag) = 0"
+#PRAGMA EXTERNAL "PROC C.occoids (VAL []AGENT.INFO in, VAL VECTOR velocity, MOBILE []AGENT.INFO boids, obstacles) = 0"
 --}}}
 
 --{{{  PROC update.info
@@ -841,18 +842,19 @@ PROC main (SHARED CHAN BYTE err!)
         --{{{  apply rules
 
         --{{{ CL stuff
-        C.printfint (SIZE raw.infos)
-        C.occoids ((SIZE raw.infos), raw.infos)
-        size := (SIZE raw.infos)
-        IF
-          (size) = 0
-            SKIP
-          (size) = 1
-            SKIP
-          TRUE
-            SEQ
-              C.printfint (raw.infos[0][local.id])
-              C.printfint (raw.infos[0][type])
+        C.occoids(raw.infos, velocity, boid.infos, obstacle.infos)
+        --C.printfint (SIZE raw.infos)
+        --C.occoids ((SIZE raw.infos), raw.infos)
+        --size := (SIZE raw.infos)
+        --IF
+        --  (size) = 0
+        --    SKIP
+        --  (size) = 1
+        --    SKIP
+        --  TRUE
+        --    SEQ
+        --      C.printfint (raw.infos[0][local.id])
+        --      C.printfint (raw.infos[0][type])
         --}}}
 
         filter.infos (raw.infos, velocity, boid.infos, obstacle.infos)

@@ -16,10 +16,11 @@
 #define MAX_SOURCE_SIZE (0x100000)
 
 #define CLOCCOIDS 0
+#define DEBUG 0
 
 typedef struct {
-  float x;
-  float y;
+  cl_float x;
+  cl_float y;
 } vector;
 
 typedef struct {
@@ -27,14 +28,14 @@ typedef struct {
   int type;
   vector position;
   vector velocity;
-  float radius;
+  cl_float radius;
   int colour;
 } agentinfo;
 
 void _occoids (int *w);
 void _initoccoids (int *w);
-int occoids (agentinfo ai, vector accel);
-int occoids_c (agentinfo ai, vector accel);
+int occoids (agentinfo *ai, vector *accel, int size);
+int occoids_c (agentinfo *ai, vector *accel, int size);
 int init_occoids ();
 cl_int print_occoids_kernel_info ();
 

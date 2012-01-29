@@ -23,8 +23,8 @@ DATA TYPE AGENT.INFO
 #PRAGMA EXTERNAL "PROC C.initmandelbrot () = 0"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
 #PRAGMA EXTERNAL "PROC C.destroycl () = 0"
---#PRAGMA EXTERNAL "PROC C.occoids (VAL []AGENT.INFO in, VAL VECTOR velocity, MOBILE []AGENT.INFO boids, obstacles) = 0"
-#PRAGMA EXTERNAL "PROC C.occoids (VAL []AGENT.INFO in, VAL VECTOR velocity) = 0"
+#PRAGMA EXTERNAL "PROC C.occoids (VAL []AGENT.INFO in, VAL VECTOR velocity, MOBILE []AGENT.INFO boids, obstacles) = 0"
+--#PRAGMA EXTERNAL "PROC C.occoids (VAL []AGENT.INFO in, VAL VECTOR velocity) = 0"
 
 -- for occam mandelbrot
 DATA TYPE COMPLEX64
@@ -135,7 +135,7 @@ PROC mandelocc (CHAN BYTE out!)
 :
 
 PROC occoids (CHAN BYTE out!)
-  [1]AGENT.INFO in:
+  --[1]AGENT.INFO in:
   --VECTOR velocity:
   VECTOR velocity:
   INITIAL MOBILE []AGENT.INFO in IS MOBILE [1]AGENT.INFO:
@@ -163,7 +163,7 @@ PROC occoids (CHAN BYTE out!)
     velocity[y] := 8.2
 
 --    C.occoids(in, velocity, boid.infos, obstacle.infos)
-    C.occoids(in, velocity)
+    C.occoids(in, velocity, boid.infos, obstacle.infos)
 :
 
 PROC hello (CHAN BYTE out!)
