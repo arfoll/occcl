@@ -64,30 +64,6 @@ cl_float magnitute2 (vector *ve)
 }
 
 /**
- * function emulates the can.see function in occam
- */
-int cansee (agentinfo *info, vector *velocity)
-{
-  if (magnitute2(&info->position) > (VISIONRADIUS*VISIONANGLE)) {
-    return 1;
-  }
-  else if (info->type == ATCYLINDER) {
-    return 0;
-  }
-  else if (magnitute2(velocity) < 0.00000) {
-    return 0;
-  }
-#if 0
-  elif () {
-    return FALSE;
-  }
-#endif
-  else {
-    return 0;
-  }
-}
-
-/**
  * for now this emulates the start of the filter.infos() PROC and returns
  * n.boids and n.obstacles
  * TODO: the rest of the function
@@ -99,23 +75,6 @@ int occoids_c (agentinfo *ai, vector *velocity, int size)
   vector accel;
   accel.x = 0.0;
   accel.y = 0.0;
-
-#if 0
-  // dynamic memory management is for sissies!
-  int nboids = 0;
-  int nobstacles = 0;
-  for (i=0; i<size; i++) {
-    if (cansee(ai, accel)) {
-      if (ai->type == 1) {
-        nboids++;
-      }
-      else if (ai->type == 2) {
-        nobstacles++;
-      }
-    }
-    ai++;
-  }
-#endif
 
   //** centre of mass rule
   infos = ai;
@@ -136,7 +95,6 @@ int occoids_c (agentinfo *ai, vector *velocity, int size)
     com.x = com.x / count;
     com.y = com.y / count;
   }
-
   com.x = com.x / CENTREOFMASSFRACT;
   com.y = com.y / CENTREOFMASSFRACT;
   accel.x = com.x + accel.x;
@@ -206,7 +164,6 @@ int occoids_c (agentinfo *ai, vector *velocity, int size)
     }
     infos++;
   }
-
   push.x = push.x / OBSTACLEFRACT;
   push.y = push.y / OBSTACLEFRACT;
   accel.x = push.x + accel.x;
@@ -217,7 +174,7 @@ int occoids_c (agentinfo *ai, vector *velocity, int size)
   velocity->y = velocity->y + (accel.y / SMOOTHACCEL);
   if (abs(velocity->x) < 0.00000)
     velocity->x = 0.0;
-  if (abs(velocity->x) < 0.00000)
+  if (abs(velocity->y) < 0.00000)
     velocity->y = 0.0;
 
   cl_float mag = magnitute2 (velocity);
