@@ -48,13 +48,37 @@ C (Intel Q6600 @ 3.0ghz):
   sys     0m0.670s
 
 mandebrot no disp (gcc 4.6.2 with -O2
-  (Intel Q6600 @ 3.0ghz + nvidia GT430)
+  (Intel Q6600 @ 3.0ghz + nvidia GTX560)
   OpenCL implementation (frame - with opts -D USE_DOUBLE -cl-fast-relaxed-math -cl-mad-enable)
     438ms
   C implementation (frame)
     2663ms
   Occam implementation (line)
     13413ms
+
+Occoids-single:
+  (Intel Q6600 @ 3.0Ghz + nvidia GTX560)
+  Occam implementation
+Cycle       50; cycle time =    14719 us;     2180 processes
+Cycle      100; cycle time =    14730 us;     2180 processes
+Cycle      150; cycle time =    14885 us;     2180 processes
+Cycle      200; cycle time =    15706 us;     2180 processes
+Cycle      250; cycle time =    15967 us;     2180 processes
+Cycle      300; cycle time =    17533 us;     2180 processes
+Cycle      350; cycle time =    16094 us;     2180 processes
+Cycle      400; cycle time =    16547 us;     2180 processes
+Cycle      450; cycle time =    16460 us;     2180 processes
+Cycle      500; cycle time =    16140 us;     2180 processes
+Cycle      550; cycle time =    16998 us;     2180 processes
+Cycle      600; cycle time =    17053 us;     2180 processes
+Cycle      650; cycle time =    16883 us;     2180 processes
+Cycle      700; cycle time =    16191 us;     2180 processes
+Cycle      750; cycle time =    16688 us;     2180 processes
+Cycle      800; cycle time =    16797 us;     2180 processes
+Cycle      850; cycle time =    17053 us;     2180 processes
+Cycle      900; cycle time =    17501 us;     2180 processes
+Cycle      950; cycle time =    18061 us;     2180 processes
+
 
 CONCLUSION
 

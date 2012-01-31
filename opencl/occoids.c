@@ -68,28 +68,22 @@ cl_float magnitute2 (vector *ve)
  */
 int cansee (agentinfo *info, vector *velocity)
 {
-  #define TRUE 0
-  #define FALSE 1
-  #define ATCYLINDER 2
-  #define VISIONRADIUS 0.25
-  #define VISIONANGLE 200.0
-
   if (magnitute2(&info->position) > (VISIONRADIUS*VISIONANGLE)) {
-    return FALSE;
+    return 1;
   }
   else if (info->type == ATCYLINDER) {
-    return TRUE;
+    return 0;
   }
   else if (magnitute2(velocity) < 0.00000) {
-    return TRUE;
+    return 0;
   }
-#if 0  
+#if 0
   elif () {
     return FALSE;
   }
 #endif
   else {
-    return TRUE;
+    return 0;
   }
 }
 
@@ -98,19 +92,138 @@ int cansee (agentinfo *info, vector *velocity)
  * n.boids and n.obstacles
  * TODO: the rest of the function
  */
-int occoids_c (agentinfo *ai, vector *accel, int size)
+int occoids_c (agentinfo *ai, vector *velocity, int size)
 {
   int i;
+  agentinfo *infos;
+  vector accel;
+  accel.x = 0.0;
+  accel.y = 0.0;
+
+#if 0
+  // dynamic memory management is for sissies!
   int nboids = 0;
   int nobstacles = 0;
   for (i=0; i<size; i++) {
     if (cansee(ai, accel)) {
-      if (ai->type == 1)
-        *nboids++;
-      else if (ai->type == 2)
-        *nobstacles++;
+      if (ai->type == 1) {
+        nboids++;
+      }
+      else if (ai->type == 2) {
+        nobstacles++;
+      }
     }
     ai++;
+  }
+#endif
+
+  //** centre of mass rule
+  infos = ai;
+  int count = 0;
+  vector com;
+  com.x = 0.0;
+  com.y = 0.0;
+  for (i=0; i<size; i++) {
+    if (infos->type == ATBOID) {
+      com.x = com.x + infos->position.x;
+      com.y = com.y + infos->position.y;
+      count++;
+    }
+    infos++;
+  }
+  // don't do this if there where no agents seen
+  if (count > 0) {
+    com.x = com.x / count;
+    com.y = com.y / count;
+  }
+
+  com.x = com.x / CENTREOFMASSFRACT;
+  com.y = com.y / CENTREOFMASSFRACT;
+  accel.x = com.x + accel.x;
+  accel.y = com.y + accel.y;
+
+  //** repulsion rule
+  infos = ai;
+  vector push;
+  push.x = 0.0;
+  push.y = 0.0;
+  for (i=0; i<size; i++) {
+    if (infos->type == ATBOID) {
+      if (magnitute2(&infos->position) < (REPULSIONDIST * REPULSIONDIST)) {
+        push.x = push.x - infos->position.x;
+        push.y = push.y - infos->position.y;
+      }
+    }
+    infos++;
+  }
+  push.x = push.x / REPULSIONFRACT;
+  push.y = push.y / REPULSIONFRACT;
+  accel.x = push.x + accel.x;
+  accel.y = push.y + accel.y;
+
+  //** mean velocity rule
+  infos = ai;
+  count = 0;
+  vector pvel;
+  pvel.x = 0.0;
+  pvel.y = 0.0;
+  for (i=0; i<size; i++) {
+    if (infos->type == ATBOID) {
+      pvel.x = pvel.x + infos->velocity.x;
+      pvel.y = pvel.y + infos->velocity.y;
+      count++;
+    }
+    infos++;
+  }
+  // don't do this if there where no agents seen
+  if (count > 0) {
+    pvel.x = pvel.x / count;
+    pvel.y = pvel.y / count;
+  }
+  pvel.x = pvel.x / MEANVELFRACT;
+  pvel.y = pvel.y / MEANVELFRACT;
+  accel.x = pvel.x + accel.x;
+  accel.y = pvel.y + accel.y;
+
+  //** obstacle rule
+  push.x = 0.0;
+  push.y = 0.0;
+  infos = ai;
+  for (i=0; i<size; i++) {
+    if (infos->type == ATBOID) {
+      cl_float dist = sqrt (magnitute2(&infos->position)) - infos->radius;
+      if (dist < 0.0) {
+        push.x = push.x - infos->position.x;
+        push.y = push.y - infos->position.y;
+      }
+      else if (dist < SOFTTHRESHOLD) {
+        dist = 1.0 - (dist / SOFTTHRESHOLD);
+        infos->position.x = infos->position.x * dist;
+        infos->position.y = infos->position.y * dist;
+        push.x = push.x - infos->position.x;
+        push.y = push.y - infos->position.y;
+      }
+    }
+    infos++;
+  }
+
+  push.x = push.x / OBSTACLEFRACT;
+  push.y = push.y / OBSTACLEFRACT;
+  accel.x = push.x + accel.x;
+  accel.y = pvel.y + accel.y;
+
+  //** accelerate
+  velocity->x = velocity->x + (accel.x / SMOOTHACCEL);
+  velocity->y = velocity->y + (accel.y / SMOOTHACCEL);
+  if (abs(velocity->x) < 0.00000)
+    velocity->x = 0.0;
+  if (abs(velocity->x) < 0.00000)
+    velocity->y = 0.0;
+
+  cl_float mag = magnitute2 (velocity);
+  if (mag > SPEEDLIMIT2) {
+    velocity->x = velocity->x / (mag/SPEEDLIMIT2);
+    velocity->y = velocity->y / (mag/SPEEDLIMIT2);
   }
 
   return 0;

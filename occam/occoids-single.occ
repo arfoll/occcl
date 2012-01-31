@@ -91,7 +91,7 @@ DATA TYPE AGENT.INFO
 -- local.id, type, colour
 -- position.x, position.y, velocity.x, velocity.y, radius, accel.x, accel.y
 --#PRAGMA EXTERNAL "PROC C.occoids (VAL INT size, VAL []AGENT.INFO ag) = 0"
-#PRAGMA EXTERNAL "PROC C.occoids (VAL []AGENT.INFO in, VAL VECTOR velocity, MOBILE []AGENT.INFO boids, obstacles) = 0"
+#PRAGMA EXTERNAL "PROC C.occoids (VAL []AGENT.INFO in, VAL VECTOR velocity) = 0"
 --}}}
 
 --{{{  PROC update.info
@@ -842,7 +842,7 @@ PROC main (SHARED CHAN BYTE err!)
         --{{{  apply rules
 
         --{{{ CL stuff
-        C.occoids(raw.infos, velocity, boid.infos, obstacle.infos)
+        C.occoids(raw.infos, velocity)
         --C.printfint (SIZE raw.infos)
         --C.occoids ((SIZE raw.infos), raw.infos)
         --size := (SIZE raw.infos)
@@ -857,16 +857,16 @@ PROC main (SHARED CHAN BYTE err!)
         --      C.printfint (raw.infos[0][type])
         --}}}
 
-        filter.infos (raw.infos, velocity, boid.infos, obstacle.infos)
+--        filter.infos (raw.infos, velocity, boid.infos, obstacle.infos)
 
-        centre.of.mass.rule (boid.infos, accel)
-        repulsion.rule (boid.infos, accel)
-        mean.velocity.rule (boid.infos, velocity, accel)
+--        centre.of.mass.rule (boid.infos, accel)
+--        repulsion.rule (boid.infos, accel)
+--        mean.velocity.rule (boid.infos, velocity, accel)
 
-        obstacle.rule (obstacle.infos, accel)
+--        obstacle.rule (obstacle.infos, accel)
         --}}}
         --{{{  compute and send velocity
-        accelerate (velocity, accel)
+--        accelerate (velocity, accel)
         cli[req] ! move; velocity
         --}}}
 
