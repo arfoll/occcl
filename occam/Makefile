@@ -1,8 +1,8 @@
 CC=kroc
-KROCOPT = --cc-opts=-lOpenCL
+KROCOPT = -d --cc-opts=-lOpenCL
 DEPS = 
 OBJ = ../opencl/initial.o
-OBJ_HELLO = ../opencl/rot13.o ../opencl/mandelbrot.o ../opencl/colour.o ../opencl/occoids.o
+OBJ_HELLO = ../opencl/rot13.o ../opencl/mandelbrot.o ../opencl/colour.o ../opencl/occoids.o ../opencl/printf.o
 OBJ_MAN = ../opencl/mandelbrot.o ../opencl/printf.o ../opencl/colour.o
 OBJ_OCCOIDS = ../opencl/occoids.o ../opencl/printf.o
 

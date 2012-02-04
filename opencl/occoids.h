@@ -26,9 +26,9 @@
 #define MEANVELFRACT 8.0
 #define OBSTACLEFRACT 8.0
 #define SOFTTHRESHOLD 0.05
-#define SPEEDLIMIT 0.03
 #define SMOOTHACCEL 5.0
-#define SPEEDLIMIT2 SPEEDLIMIT * SPEEDLIMIT
+#define SPEEDLIMIT 0.03
+#define SPEEDLIMIT2 (SPEEDLIMIT * SPEEDLIMIT) //0.0009
 #define VISIONRADIUS 0.25
 #define VISIONANGLE 200.0
 
@@ -38,18 +38,18 @@ typedef struct {
 } vector;
 
 typedef struct {
-  int localid;
-  int type;
+  cl_int localid;
+  cl_int type;
   vector position;
   vector velocity;
   cl_float radius;
-  int colour;
+  cl_int colour;
 } agentinfo;
 
 void _occoids (int *w);
 void _initoccoids (int *w);
-int occoids (agentinfo *ai, vector *velocity, int size);
-int occoids_c (agentinfo *ai, vector *velocity, int size);
+int occoids (agentinfo *ai, vector *velocity, cl_int size);
+int occoids_c (agentinfo *ai, vector *velocity, cl_int size);
 int init_occoids ();
 cl_int print_occoids_kernel_info ();
 

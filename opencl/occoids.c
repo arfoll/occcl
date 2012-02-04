@@ -38,8 +38,8 @@ void _occoids (int *w)
     ai++;
   }
 #else
-  int arrsize = w[1];
   agentinfo *ai = w[0];
+  cl_int arrsize = w[1];
   vector *velocity = w[2];
 #endif
 #if CLOCCOIDS
@@ -66,15 +66,16 @@ cl_float magnitute2 (vector *ve)
 /**
  * for now this emulates the start of the filter.infos() PROC and returns
  * n.boids and n.obstacles
- * TODO: the rest of the function
  */
-int occoids_c (agentinfo *ai, vector *velocity, int size)
+int occoids_c (agentinfo *ai, vector *velocity, cl_int size)
 {
   int i;
   agentinfo *infos;
   vector accel;
   accel.x = 0.0;
   accel.y = 0.0;
+
+  // TODO: small rule to do the can.see and make stuff = -1 when it's just there but not visible etc...
 
   //** centre of mass rule
   infos = ai;
@@ -83,11 +84,11 @@ int occoids_c (agentinfo *ai, vector *velocity, int size)
   com.x = 0.0;
   com.y = 0.0;
   for (i=0; i<size; i++) {
-    if (infos->type == ATBOID) {
+    //if (infos->type == ATBOID) {
       com.x = com.x + infos->position.x;
       com.y = com.y + infos->position.y;
       count++;
-    }
+    //}
     infos++;
   }
   // don't do this if there where no agents seen
@@ -126,11 +127,11 @@ int occoids_c (agentinfo *ai, vector *velocity, int size)
   pvel.x = 0.0;
   pvel.y = 0.0;
   for (i=0; i<size; i++) {
-    if (infos->type == ATBOID) {
+    //if (infos->type == ATBOID) {
       pvel.x = pvel.x + infos->velocity.x;
       pvel.y = pvel.y + infos->velocity.y;
       count++;
-    }
+    //}
     infos++;
   }
   // don't do this if there where no agents seen
@@ -138,6 +139,8 @@ int occoids_c (agentinfo *ai, vector *velocity, int size)
     pvel.x = pvel.x / count;
     pvel.y = pvel.y / count;
   }
+  pvel.x = pvel.x - velocity->x;
+  pvel.y = pvel.y - velocity->y;
   pvel.x = pvel.x / MEANVELFRACT;
   pvel.y = pvel.y / MEANVELFRACT;
   accel.x = pvel.x + accel.x;
@@ -148,7 +151,7 @@ int occoids_c (agentinfo *ai, vector *velocity, int size)
   push.y = 0.0;
   infos = ai;
   for (i=0; i<size; i++) {
-    if (infos->type == ATBOID) {
+    //if (infos->type == ATCYLINDER) {
       cl_float dist = sqrt (magnitute2(&infos->position)) - infos->radius;
       if (dist < 0.0) {
         push.x = push.x - infos->position.x;
@@ -161,32 +164,39 @@ int occoids_c (agentinfo *ai, vector *velocity, int size)
         push.x = push.x - infos->position.x;
         push.y = push.y - infos->position.y;
       }
-    }
+    //}
     infos++;
   }
   push.x = push.x / OBSTACLEFRACT;
   push.y = push.y / OBSTACLEFRACT;
   accel.x = push.x + accel.x;
-  accel.y = pvel.y + accel.y;
+  accel.y = push.y + accel.y;
 
   //** accelerate
   velocity->x = velocity->x + (accel.x / SMOOTHACCEL);
   velocity->y = velocity->y + (accel.y / SMOOTHACCEL);
-  if (abs(velocity->x) < 0.00000)
+  
+  if (abs(velocity->x) < 0.00000) {
     velocity->x = 0.0;
-  if (abs(velocity->y) < 0.00000)
+  }
+  if (abs(velocity->y) < 0.00000) {
     velocity->y = 0.0;
+  }
 
   cl_float mag = magnitute2 (velocity);
   if (mag > SPEEDLIMIT2) {
-    velocity->x = velocity->x / (mag/SPEEDLIMIT2);
-    velocity->y = velocity->y / (mag/SPEEDLIMIT2);
+    cl_float div = mag/SPEEDLIMIT2;
+    velocity->x = velocity->x / div;
+    velocity->y = velocity->y / div;
   }
+#if DEBUG  
+  printf ("OCC velocity - %f - %f // mag = %f // limit2 = %f\n", velocity->x, velocity->y, mag, SPEEDLIMIT2);
+#endif
 
   return 0;
 }
 
-int occoids (agentinfo *ai, vector *accel, int size)
+int occoids (agentinfo *ai, vector *accel, cl_int size)
 {
 #if 0
 

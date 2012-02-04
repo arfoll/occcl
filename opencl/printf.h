@@ -13,6 +13,7 @@
 
 void _printfjob (int *w);
 void _printfreal (int *w);
+void _printfreal64 (int *w);
 void _printfint (int *w);
 
 #endif

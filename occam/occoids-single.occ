@@ -6,7 +6,7 @@
 #INCLUDE "rastergraphics.module"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
 #PRAGMA EXTERNAL "PROC C.destroycl () = 0"
-#PRAGMA EXTERNAL "PROC C.printfreal (VAL REAL64 val) = 0"
+#PRAGMA EXTERNAL "PROC C.printfreal (VAL []REAL32 val) = 0"
 #PRAGMA EXTERNAL "PROC C.printfint (VAL INT val) = 0"
 #INCLUDE "rastercapture.inc"
 
@@ -50,8 +50,9 @@ VAL REAL32 EPSILON IS 1.0E-8:
 --{{{  data types and protocols
 --{{{  vectors
 DATA TYPE VECTOR
-  RECORD
-    REAL32 x, y:
+  PACKED RECORD
+    REAL32 x:
+    REAL32 y:
 :
 
 VECTOR INLINE FUNCTION "+" (VAL VECTOR a, b) IS [a[x] + b[x], a[y] + b[y]]:
@@ -78,10 +79,11 @@ VAL INT AT.CYLINDER IS 2:
 --*}}}
 
 DATA TYPE AGENT.INFO
-  RECORD
+  PACKED RECORD
     INT local.id:
     INT type:
-    VECTOR position, velocity:
+    VECTOR position:
+    VECTOR velocity:
     REAL32 radius:
     INT colour:
 :
@@ -812,6 +814,7 @@ PROC main (SHARED CHAN BYTE err!)
 
         --{{{  apply speed limit
         mag := magnitude2 (velocity)
+        --C.printfreal(SPEED.LIMIT2)
         IF
           mag > SPEED.LIMIT2
             velocity := velocity / (mag / SPEED.LIMIT2)
@@ -839,36 +842,12 @@ PROC main (SHARED CHAN BYTE err!)
         cli[req] ! look; raw.infos
         cli[resp] ? CASE seen; raw.infos
         --}}}
-        --{{{  apply rules
 
-        --{{{ CL stuff
-        C.occoids(raw.infos, velocity)
-        --C.printfint (SIZE raw.infos)
-        --C.occoids ((SIZE raw.infos), raw.infos)
-        --size := (SIZE raw.infos)
-        --IF
-        --  (size) = 0
-        --    SKIP
-        --  (size) = 1
-        --    SKIP
-        --  TRUE
-        --    SEQ
-        --      C.printfint (raw.infos[0][local.id])
-        --      C.printfint (raw.infos[0][type])
-        --}}}
+        filter.infos (raw.infos, velocity, boid.infos, obstacle.infos)
 
---        filter.infos (raw.infos, velocity, boid.infos, obstacle.infos)
+        C.occoids(boid.infos, velocity)
 
---        centre.of.mass.rule (boid.infos, accel)
---        repulsion.rule (boid.infos, accel)
---        mean.velocity.rule (boid.infos, velocity, accel)
-
---        obstacle.rule (obstacle.infos, accel)
-        --}}}
-        --{{{  compute and send velocity
---        accelerate (velocity, accel)
         cli[req] ! move; velocity
-        --}}}
 
         SYNC bar -- Phase 2
   :
