@@ -34,7 +34,7 @@ DATA TYPE AGENT.INFO
     INT colour:
 :
 
--- C functions that are called
+-- external C functions
 #PRAGMA EXTERNAL "PROC C.rot13 (VAL []BYTE plaintext, RESULT []BYTE ciphertext) = 0"
 #PRAGMA EXTERNAL "PROC C.printfreal (VAL []REAL32 val) = 0"
 #PRAGMA EXTERNAL "PROC C.printfreal64 (VAL []REAL64 val) = 0"
@@ -45,7 +45,7 @@ DATA TYPE AGENT.INFO
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
 #PRAGMA EXTERNAL "PROC C.destroycl () = 0"
 #PRAGMA EXTERNAL "PROC C.occoids (VAL []AGENT.INFO in, VAL VECTOR velocity) = 0"
---#PRAGMA EXTERNAL "PROC C.occoids (VAL []AGENT.INFO in, VAL VECTOR velocity) = 0"
+#PRAGMA EXTERNAL "PROC C.initoccoids () = 0"
 
 -- for occam mandelbrot
 DATA TYPE COMPLEX64
@@ -366,6 +366,7 @@ PROC hello (CHAN BYTE out!)
   SEQ
     out.string ("opencl occam test*n", 0, out!)
     C.initialisecl()
+    C.initoccoids ()
     out.string ("opencl init over *n", 0, out!)
 
     C.initrot13()

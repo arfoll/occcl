@@ -92,8 +92,8 @@ DATA TYPE AGENT.INFO
 -- pack the data as INT[3], REAL32[7]
 -- local.id, type, colour
 -- position.x, position.y, velocity.x, velocity.y, radius, accel.x, accel.y
---#PRAGMA EXTERNAL "PROC C.occoids (VAL INT size, VAL []AGENT.INFO ag) = 0"
 #PRAGMA EXTERNAL "PROC C.occoids (VAL []AGENT.INFO in, VAL VECTOR velocity) = 0"
+#PRAGMA EXTERNAL "PROC C.initoccoids () = 0"
 --}}}
 
 --{{{  PROC update.info
@@ -1009,6 +1009,7 @@ PROC main (SHARED CHAN BYTE err!)
 
     --{{{  initialise openCL and CL kernels
     C.initialisecl()
+    C.initoccoids()
     --}}}
 
     CHAN RASTER.EVENT events:
@@ -1056,7 +1057,7 @@ PROC main (SHARED CHAN BYTE err!)
               cell, seed := random (NUM.LOCATIONS, seed)
               spawn.actor ((-1) - i, AT.CYLINDER, seed, clis[cell], bar)
           --}}}
-          --{{{  spawn agents
+          --{{{  spawn boids
           INITIAL INT id IS 0:
           SEQ i = 0 FOR INITIAL.BOIDS
             INT cell:

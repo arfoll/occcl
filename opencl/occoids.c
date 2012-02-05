@@ -43,10 +43,11 @@ void _occoids (int *w)
   vector *velocity = w[2];
 #endif
 #if CLOCCOIDS
-  // need to get rid of the struct
-  //occoids ();
+  occoids (ai, velocity, &arrsize);
+  //printf("opencl res = %f, %f\n", velocity->x, velocity->y);
 #else
   occoids_c (ai, velocity, arrsize);
+  //printf("C res = %f, %f\n", ve2.x, ve2.y);
 #endif
 }
 
@@ -84,11 +85,9 @@ int occoids_c (agentinfo *ai, vector *velocity, cl_int size)
   com.x = 0.0;
   com.y = 0.0;
   for (i=0; i<size; i++) {
-    //if (infos->type == ATBOID) {
-      com.x = com.x + infos->position.x;
-      com.y = com.y + infos->position.y;
-      count++;
-    //}
+    com.x = com.x + infos->position.x;
+    com.y = com.y + infos->position.y;
+    count++;
     infos++;
   }
   // don't do this if there where no agents seen
@@ -127,11 +126,9 @@ int occoids_c (agentinfo *ai, vector *velocity, cl_int size)
   pvel.x = 0.0;
   pvel.y = 0.0;
   for (i=0; i<size; i++) {
-    //if (infos->type == ATBOID) {
-      pvel.x = pvel.x + infos->velocity.x;
-      pvel.y = pvel.y + infos->velocity.y;
-      count++;
-    //}
+    pvel.x = pvel.x + infos->velocity.x;
+    pvel.y = pvel.y + infos->velocity.y;
+    count++;
     infos++;
   }
   // don't do this if there where no agents seen
@@ -151,7 +148,7 @@ int occoids_c (agentinfo *ai, vector *velocity, cl_int size)
   push.y = 0.0;
   infos = ai;
   for (i=0; i<size; i++) {
-    //if (infos->type == ATCYLINDER) {
+    if (infos->type == ATCYLINDER) {
       cl_float dist = sqrt (magnitute2(&infos->position)) - infos->radius;
       if (dist < 0.0) {
         push.x = push.x - infos->position.x;
@@ -164,13 +161,14 @@ int occoids_c (agentinfo *ai, vector *velocity, cl_int size)
         push.x = push.x - infos->position.x;
         push.y = push.y - infos->position.y;
       }
-    //}
+    }
     infos++;
   }
   push.x = push.x / OBSTACLEFRACT;
   push.y = push.y / OBSTACLEFRACT;
   accel.x = push.x + accel.x;
   accel.y = push.y + accel.y;
+
 
   //** accelerate
   velocity->x = velocity->x + (accel.x / SMOOTHACCEL);
@@ -196,10 +194,8 @@ int occoids_c (agentinfo *ai, vector *velocity, cl_int size)
   return 0;
 }
 
-int occoids (agentinfo *ai, vector *accel, cl_int size)
+int occoids (agentinfo *ai, vector *velocity, cl_int *size)
 {
-#if 0
-
   cl_int error;
 
 #if ERROR_CHECK
@@ -209,25 +205,31 @@ int occoids (agentinfo *ai, vector *accel, cl_int size)
 #endif
 
   // Allocate memory for the kernel to work with
-  cl_mem mem1, mem2;
-  mem1 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_char)*(width*2), 0, &error);
-//  mem1 = clCreateBuffer(*context, CL_MEM_USE_HOST_PTR, sizeof(cl_char)*(width*2), data, &error);
-  mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*5, job, &error);
+  cl_mem mem1, mem2, mem3;
+  mem1 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(agentinfo)*(*size), ai, &error);
+  mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(vector), velocity, &error);
+  mem3 = clCreateBuffer(*context, CL_MEM_READ_ONLY, sizeof(cl_int), NULL, &error);
 
   // get a handle and map parameters for the kernel
-  error = clSetKernelArg(k_occoids, 0, sizeof(cl_mem), &mem1);
-  error = clSetKernelArg(k_occoids, 1, sizeof(cl_mem), &mem2);
+  error = clSetKernelArg(k_occoids, 0, sizeof(mem1), &mem1);
+  error = clSetKernelArg(k_occoids, 1, sizeof(mem2), &mem2);
+  error = clSetKernelArg(k_occoids, 2, sizeof(mem3), &mem3);
 
-  // Perform the operation (width is 100 in this example)
-  size_t worksize = width;
+  // write the arguments to memory
+  //error = clEnqueueWriteBuffer(*cq, mem1, CL_FALSE, 0, sizeof(agentinfo)*(*size), ai, 0, NULL, NULL);
+  error = clEnqueueWriteBuffer(*cq, mem3, CL_FALSE, 0, sizeof(cl_int), size, 0, NULL, NULL);
+
+  // Perform the operation, there is only work item in this case
+  size_t worksize = 1;
   error = clEnqueueNDRangeKernel(*cq, k_occoids, 1, NULL, &worksize, 0, 0, 0, 0);
-  // Read the result back into data
-  error = clEnqueueReadBuffer(*cq, mem1, CL_TRUE, 0, (size_t) (width*2), data, 0, 0, 0);
+  error = clEnqueueReadBuffer(*cq, mem2, CL_TRUE, 0, sizeof(vector), velocity, 0, NULL, NULL);
 
   // cleanup
-  error = clFlush(*cq);
+  // TODO: clFlush is NOT optimal
+  //clFlush(*cq);
   clReleaseMemObject(mem1);
   clReleaseMemObject(mem2);
+  clReleaseMemObject(mem3);
 
   if (error) {
     fprintf (stderr, "ERROR! : %s\n", errorMessageCL(error));
@@ -235,8 +237,6 @@ int occoids (agentinfo *ai, vector *accel, cl_int size)
   }
 
   return error;
-#endif
-  return 0;
 }
 
 cl_int print_occoids_kernel_info ()
@@ -280,6 +280,8 @@ int init_occoids ()
 
   if (!error)
     occoids_init = 1;
+
+  printf("occoids init over!\n");
 
   return error;
 }

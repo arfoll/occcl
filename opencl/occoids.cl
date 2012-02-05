@@ -5,29 +5,105 @@
  * Copyright 2011 - University of Kent
  */
 
-#pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#include "occoids_cl.h"
 
-__kernel void occoids (__global char *data, __global double *job)
+float magnitute2 (vector *ve)
 {
-  char table_char[] = " .,*~*^:;|&[$%@#";
-  //int table_char[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
-  const int idx = get_global_id(0);
-  double real = (((idx - 50) / (job[1] * 2.0)) - job[3]);
-  double imag = job[4];
-  double iter_real = 0.0;
-  double iter_imag = 0.0;
-  int count = 0;
-  while ((((iter_real*iter_real)+(iter_imag*iter_imag)) < 32.0) && (count < 240)) {
-    double iter_r;
-    double iter_i;
-    iter_r = ((iter_real*iter_real) - (iter_imag*iter_imag));
-    iter_i = ((iter_imag*iter_real) + (iter_real*iter_imag));
-    iter_real = (real + iter_r);
-    iter_imag = (imag + iter_i);
-    count++;
+  return (ve->x * ve->x) + (ve->y * ve->y);
+}
+
+__kernel void occoids (__global agentinfo *data, __global vector *velocity, __global int *size)
+{
+  const int id = get_global_id(0);
+  int i;
+  vector accel;
+  accel.x = 0.0;
+  accel.y = 0.0;
+
+  // TODO: small rule to do the can.see and make stuff = -1 when it's just there but not visible etc...
+
+  //** centre of mass rule
+  vector com;
+  com.x = 0.0;
+  com.y = 0.0;
+  for (i=0; i<(*size); i++) {
+    com.x = com.x + data[i].position.x;
+    com.y = com.y + data[i].position.y;
   }
-  int val = count % 16;
-  data[idx*2] = (char) (val % 6);
-  data[(idx*2)+1] = table_char[val];
+  // don't do this if there where no agents seen
+  if (i > 0) {
+    com.x = com.x / i;
+    com.y = com.y / i;
+  }
+  com.x = com.x / CENTREOFMASSFRACT;
+  com.y = com.y / CENTREOFMASSFRACT;
+  accel.x = com.x + accel.x;
+  accel.y = com.y + accel.y;
+
+  //** repulsion rule
+  vector push;
+  push.x = 0.0;
+  push.y = 0.0;
+  for (i=0; i<(*size); i++) {
+    // get around address space problems in opencl
+    vector pos = data[i].position;
+    if (magnitute2(&pos) < (REPULSIONDIST * REPULSIONDIST)) {
+        push.x = push.x - pos.x;
+        push.y = push.y - pos.y;
+    }
+  }
+  push.x = push.x / REPULSIONFRACT;
+  push.y = push.y / REPULSIONFRACT;
+  accel.x = push.x + accel.x;
+  accel.y = push.y + accel.y;
+
+  //** mean velocity rule
+  vector pvel;
+  pvel.x = 0.0;
+  pvel.y = 0.0;
+  for (i=0; i<(*size); i++) {
+    pvel.x = pvel.x + data[i].velocity.x;
+    pvel.y = pvel.y + data[i].velocity.y;
+  }
+  // don't do this if there where no agents seen
+  if (i > 0) {
+    pvel.x = pvel.x / i;
+    pvel.y = pvel.y / i;
+  }
+  pvel.x = pvel.x - velocity->x;
+  pvel.y = pvel.y - velocity->y;
+  pvel.x = pvel.x / MEANVELFRACT;
+  pvel.y = pvel.y / MEANVELFRACT;
+  accel.x = pvel.x + accel.x;
+  accel.y = pvel.y + accel.y;
+
+  //TODO: add obstacle rule
+
+  //** accelerate
+  velocity->x = velocity->x + (accel.x / SMOOTHACCEL);
+  velocity->y = velocity->y + (accel.y / SMOOTHACCEL);
+
+#if 0
+  // abs(float x) does not seem to exist in opencl
+  if (abs(velocity->x) < 0.00000) {
+    velocity->x = 0.0;
+  }
+  if (abs(velocity->y) < 0.00000) {
+    velocity->y = 0.0;
+  }
+#endif
+
+  // get around address space problems in opencl
+  vector vel = *velocity;
+  float mag = magnitute2 (&vel);
+  if (mag > SPEEDLIMIT2) {
+    float div = mag/SPEEDLIMIT2;
+    velocity->x = velocity->x / div;
+    velocity->y = velocity->y / div;
+  }
+
+#if 0
+  velocity->x = accel.x;
+  velocity->y = accel.y;
+#endif
 }
