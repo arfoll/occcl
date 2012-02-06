@@ -20,6 +20,7 @@
 #define CLKERNELDEFS "mandelbrot.cl"
 #define NUM_GPUS 1
 #define MULTI_GPUS 1
+#define MAX_BUILD_LINE_LENGTH 1024
 
 #define DEBUG 0
 #define CLMANDEL 1
@@ -40,9 +41,9 @@ void _mandelbrot (int *w);
 void _mandelbrotvis (int *w);
 void _initmandelbrot (int *w);
 void _initmandelbrotvis (int *w);
-int mandelbrot (cl_char (*data)[200], cl_fract *job);
-int mandelbrotvis (cl_int (*data)[320], cl_fract *job);
-void mandelbrot_c (cl_char (*data)[200], cl_fract *job);
+int mandelbrot (cl_char (*data)[IMAGEWIDTH*2], cl_fract *job);
+void mandelbrot_c (cl_char (*data)[IMAGEWIDTH*2], cl_fract *job);
+int mandelbrotvis (cl_int *data, cl_fract *job);
 int init_mandelbrot ();
 int init_mandelbrotvis ();
 cl_int print_mandelbrot_kernel_info ();

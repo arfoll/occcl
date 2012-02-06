@@ -28,8 +28,28 @@
 #INCLUDE "course.module"
 #INCLUDE "useful.module"
 
+DATA TYPE COMPLEX64
+  RECORD
+    REAL64 real, imag:
+:
+
+--{{{
+-- if running in opencl mode it is workth remembering that cuda 1.x cards
+-- max worksize is 512x512x32 and cuda 2.x cards can do 1024x1024x64
+--}}}
+VAL INT SIZE.MULTI IS 1:
+VAL INT IMAGE.WIDTH IS 320*SIZE.MULTI:
+VAL INT IMAGE.HEIGHT IS 240*SIZE.MULTI:
+VAL INT FRAMES.PER.WORKER IS 1:
+
+VAL INT N.WORKERS IS 1:
+VAL INT N.ITERS IS 850:
+VAL INT MAX.FRAMES IS 64:
+
+VAL INT FRAME.SPEED IS 0:
+
 --{{{ external opencl functions
-#PRAGMA EXTERNAL "PROC C.initmandelbrotvis () = 0"
+#PRAGMA EXTERNAL "PROC C.initmandelbrotvis (VAL INT width, height) = 0"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
 #PRAGMA EXTERNAL "PROC C.mandelbrotvis ([][]INT data, []REAL64 job) = 0"
 #PRAGMA EXTERNAL "PROC C.destroycl () = 0"
@@ -37,22 +57,6 @@
 --{{{ external debug functions
 #PRAGMA EXTERNAL "PROC C.printfint (VAL INT int) = 0"
 --}}}
-
-DATA TYPE COMPLEX64
-  RECORD
-    REAL64 real, imag:
-:
-
-VAL INT IMAGE.WIDTH IS 320:
-VAL INT IMAGE.HEIGHT IS 240:
-
-VAL INT N.WORKERS IS 4:
-VAL INT N.ITERS IS 850:
-VAL INT MAX.FRAMES IS 850:
-
-VAL INT FRAME.SPEED IS 0:
-
-VAL INT LINES.PER.WORKER IS (IMAGE.HEIGHT / N.WORKERS):
 
 PROTOCOL P.JOB.IN IS INT; INT; [4]REAL64:
 PROTOCOL P.JOB.OUT IS INT; INT; [IMAGE.HEIGHT][IMAGE.WIDTH]INT:
@@ -223,7 +227,7 @@ PROC mandelbrot (CHAN BYTE kyb?, scr!, err!)
 
     --{{{ initialise openCL and mandelbrot CL kernel
     C.initialisecl()
-    C.initmandelbrotvis ()
+    C.initmandelbrotvis (IMAGE.WIDTH, IMAGE.HEIGHT)
     --}}}
     
     CHAN INT tick, tock, kill:

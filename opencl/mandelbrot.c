@@ -22,6 +22,9 @@ static cl_command_queue *cq;
 static int currentdevice = 0;
 static int numdevices = 1;
 
+static int visheight = 240;
+static int viswidth = 320;
+
 cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
 
 void mandelbrot_c (cl_char (*data)[200], cl_fract *job)
@@ -42,7 +45,7 @@ void mandelbrot_c (cl_char (*data)[200], cl_fract *job)
       cl_fract iter_real = 0.0;
       cl_fract iter_imag = 0.0;
       int count = 0;
-      while ((((iter_real*iter_real)+(iter_imag*iter_imag)) < 32.0) && (count < IMAGEHEIGHTVIS)) {
+      while ((((iter_real*iter_real)+(iter_imag*iter_imag)) < 32.0) && (count < visheight)) {
         cl_fract iter_real2 = iter_real;
         cl_fract iter_imag2 = iter_imag;
         cl_fract iter_r;
@@ -74,7 +77,7 @@ void _mandelbrot (int *w)
 
 void _mandelbrotvis (int *w)
 { 
-  cl_int (*data)[IMAGEWIDTHVIS] = (cl_int*) w[0];
+  cl_int *data = (cl_int*) w[0];
   mandelbrotvis (data, (cl_fract*) (w[3]));
 }
 
@@ -85,6 +88,8 @@ void _initmandelbrot (int *w)
 
 void _initmandelbrotvis (int *w)
 {
+  viswidth = (int) w[0];
+  visheight = (int) w[1];
   init_mandelbrotvis();
 }
 
@@ -163,7 +168,7 @@ int mandelbrot (cl_char (*data)[200], cl_fract *job)
   return error;
 }
 
-int mandelbrotvis (cl_int (*data)[IMAGEWIDTHVIS], cl_fract *job)
+int mandelbrotvis (cl_int *data, cl_fract *job)
 {  
   cl_int error;
   int i;
@@ -177,7 +182,7 @@ int mandelbrotvis (cl_int (*data)[IMAGEWIDTHVIS], cl_fract *job)
 
   // Allocate memory for the kernel to work with
   cl_mem mem1, mem2;
-  mem1 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_int)*(IMAGEHEIGHTVIS*IMAGEWIDTHVIS), 0, &error);
+  mem1 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_int)*(visheight*viswidth), 0, &error);
 
   if (mandelbrot_cl_float) {
     cl_float jobfloat[4];
@@ -193,10 +198,10 @@ int mandelbrotvis (cl_int (*data)[IMAGEWIDTHVIS], cl_fract *job)
   error = clSetKernelArg(k_mandelbrotvis[currentdevice], 0, sizeof(mem1), &mem1);
   error = clSetKernelArg(k_mandelbrotvis[currentdevice], 1, sizeof(mem2), &mem2);
 
-  size_t worksize[3] = {IMAGEHEIGHTVIS, IMAGEWIDTHVIS, 0};
+  size_t worksize[3] = {visheight, viswidth, 0};
   error = clEnqueueNDRangeKernel(*cq, k_mandelbrotvis[currentdevice], 2, NULL, &worksize[0], 0, 0, 0, 0);
   // Read the result back into data
-  error = clEnqueueReadBuffer(*cq, mem1, CL_TRUE, 0, sizeof(cl_int)*(IMAGEHEIGHTVIS*IMAGEWIDTHVIS), data, 0, 0, 0);
+  error = clEnqueueReadBuffer(*cq, mem1, CL_TRUE, 0, sizeof(cl_int)*(visheight*viswidth), data, 0, 0, 0);
 
   // cleanup - don't perform a flush as the queue is now shared between all executions. The
   // blocking clEnqueueReadBuffer should be enough
@@ -295,7 +300,11 @@ int init_mandelbrotvis ()
 
   // build CL program with a USE_DOUBLE define if we found the correct extension
   if (getCorrectDevice("cl_khr_fp64") == CL_SUCCESS) {
-    error = buildcl (srcptr, &srcsize, &progvis[0], "-D USE_DOUBLE -cl-fast-relaxed-math -cl-mad-enable", numdevices);
+    char options[MAX_BUILD_LINE_LENGTH];
+    char *compile_opt = "-cl-fast-relaxed-math -cl-mad-enable";
+    snprintf(options, MAX_BUILD_LINE_LENGTH,
+             "-D USE_DOUBLE -D IMAGEWIDTHVIS=%d -D IMAGEHEIGHTVIS=%d %s", viswidth, visheight, compile_opt);
+    error = buildcl (srcptr, &srcsize, &progvis[0], options, numdevices);
   }
   else {
     mandelbrot_cl_float = 1;

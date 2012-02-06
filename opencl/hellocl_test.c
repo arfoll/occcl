@@ -44,9 +44,9 @@ int mandelbrotVisTest() {
   fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
   cl_fract job[4] = {0.5, 534.086426, -0.271229, 1.159260};
   cl_int *dataptr = (cl_int*)malloc(sizeof(cl_int)*240*320);
-  cl_int (*intdata)[320] = (cl_int*) dataptr;
+//  cl_int (*intdata)[320] = (cl_int*) dataptr;
 
-  mandelbrotvis(intdata, &job[0]);
+  mandelbrotvis(dataptr, &job[0]);
 
 #if 0
   int x, y;

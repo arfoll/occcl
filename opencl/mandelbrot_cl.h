@@ -24,7 +24,7 @@
 #define IMAGEHEIGHT 50
 
 // for mandelbrot VIS version
-#define IMAGEWIDTHVIS 320
-#define IMAGEHEIGHTVIS 240
+//#define IMAGEWIDTHVIS 320
+//#define IMAGEHEIGHTVIS 240
 
 #endif
