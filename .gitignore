@@ -3,8 +3,9 @@
 *.o
 *.tce
 
-opencl/hellocl
+nohup.out
 
+opencl/hellocl
 occam/hello
 occam/mandelbrot
 occam/occoids-single

@@ -19,4 +19,12 @@
     #endif
 #endif
 
+// for mandelbrot ASCII version
+#define IMAGEWIDTH 100
+#define IMAGEHEIGHT 50
+
+// for mandelbrot VIS version
+#define IMAGEWIDTHVIS 320
+#define IMAGEHEIGHTVIS 240
+
 #endif

@@ -101,6 +101,9 @@ int main (int argc, char *argv[])
   // OCCOIDS
   occoidsTest();
 
+  // MANDELBROT VIS TEST
+  mandelbrotVisTest();
+
   // check for --nocharext
   if (!arguments.nocharext) {
     // Check device supports extensions we need for rot13 & mandelbrot

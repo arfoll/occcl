@@ -383,7 +383,10 @@ PROC hello (CHAN BYTE out!)
 --    mandel (out!)
 
     occoids (out!)
-
+    INT val:
+    SEQ
+      val := #F0000000
+      out.int (val, 0, out!)
     C.destroycl ()
 :
 

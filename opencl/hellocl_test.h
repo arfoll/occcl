@@ -19,6 +19,7 @@
 
 int getCorrectDevice(char *requiredExt);
 int mandelbrotTest();
+int mandelbrotVisTest();
 int moduloTest();
 int sinTest();
 int rot13Test();

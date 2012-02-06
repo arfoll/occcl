@@ -8,11 +8,14 @@
 #include "mandelbrot.h"
 
 static int mandelbrot_init = 0;
+static int mandelbrotvis_init = 0;
 static int mandelbrot_cl_float;
 static cl_context *context;
 static cl_device_id *device;
 static cl_program prog;
+static cl_program progvis;
 static cl_kernel k_mandelbrot;
+static cl_kernel k_mandelbrotvis;
 static cl_command_queue *cq;
 
 cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
@@ -35,7 +38,7 @@ void mandelbrot_c (cl_char (*data)[200], cl_fract *job)
       cl_fract iter_real = 0.0;
       cl_fract iter_imag = 0.0;
       int count = 0;
-      while ((((iter_real*iter_real)+(iter_imag*iter_imag)) < 32.0) && (count < 240)) {
+      while ((((iter_real*iter_real)+(iter_imag*iter_imag)) < 32.0) && (count < IMAGEHEIGHTVIS)) {
         cl_fract iter_real2 = iter_real;
         cl_fract iter_imag2 = iter_imag;
         cl_fract iter_r;
@@ -65,9 +68,20 @@ void _mandelbrot (int *w)
 #endif
 }
 
+void _mandelbrotvis (int *w)
+{ 
+  cl_int (*data)[IMAGEWIDTHVIS] = (cl_int*) w[0];
+  mandelbrotvis (data, (cl_fract*) (w[3]));
+}
+
 void _initmandelbrot (int *w)
 {
   init_mandelbrot();
+}
+
+void _initmandelbrotvis (int *w)
+{
+  init_mandelbrotvis();
 }
 
 int mandelbrot (cl_char (*data)[200], cl_fract *job)
@@ -113,7 +127,7 @@ int mandelbrot (cl_char (*data)[200], cl_fract *job)
   size_t worksize[3] = {IMAGEHEIGHT, IMAGEWIDTH, 0};
   error = clEnqueueNDRangeKernel(*cq, k_mandelbrot, 2, NULL, &worksize[0], 0, 0, 0, 0);
   // Read the result back into data
-  error = clEnqueueReadBuffer(*cq, mem1, CL_TRUE, 0, (size_t) (IMAGEHEIGHT*IMAGEWIDTH*2), data, 0, 0, 0);
+  error = clEnqueueReadBuffer(*cq, mem1, CL_TRUE, 0, sizeof(cl_char)*(IMAGEHEIGHT*IMAGEWIDTH*2), data, 0, 0, 0);
 
   // cleanup - don't perform a flush as the queue is now shared between all executions. The
   // blocking clEnqueueReadBuffer should be enough
@@ -141,6 +155,53 @@ int mandelbrot (cl_char (*data)[200], cl_fract *job)
     fprintf(stdout, "\n");
   }
 #endif
+
+  return error;
+}
+
+int mandelbrotvis (cl_int (*data)[IMAGEWIDTHVIS], cl_fract *job)
+{  
+  cl_int error;
+  int i;
+
+#if ERROR_CHECK
+  if (progvis == NULL) {
+    init_mandelbrotvis();
+  }
+#endif
+
+  // Allocate memory for the kernel to work with
+  cl_mem mem1, mem2;
+  mem1 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_int)*(IMAGEHEIGHTVIS*IMAGEWIDTHVIS), 0, &error);
+
+  if (mandelbrot_cl_float) {
+    cl_float jobfloat[4];
+    for (i=0; i<4; i++)
+      jobfloat[i] = (cl_float) job[i];
+
+    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*4, jobfloat, &error);
+  } else {
+    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_fract)*4, job, &error);
+  }
+  
+  // get a handle and map parameters for the kernel
+  error = clSetKernelArg(k_mandelbrotvis, 0, sizeof(mem1), &mem1);
+  error = clSetKernelArg(k_mandelbrotvis, 1, sizeof(mem2), &mem2);
+
+  size_t worksize[3] = {IMAGEHEIGHTVIS, IMAGEWIDTHVIS, 0};
+  error = clEnqueueNDRangeKernel(*cq, k_mandelbrotvis, 2, NULL, &worksize[0], 0, 0, 0, 0);
+  // Read the result back into data
+  error = clEnqueueReadBuffer(*cq, mem1, CL_TRUE, 0, sizeof(cl_int)*(IMAGEHEIGHTVIS*IMAGEWIDTHVIS), data, 0, 0, 0);
+
+  // cleanup - don't perform a flush as the queue is now shared between all executions. The
+  // blocking clEnqueueReadBuffer should be enough
+  clReleaseMemObject(mem1);
+  clReleaseMemObject(mem2);
+
+  if (error) {
+    fprintf (stderr, "ERROR! : %s\n", errorMessageCL(error));
+    exit(10);
+  }
  
   return error;
 }
@@ -173,7 +234,7 @@ int init_mandelbrot ()
   device = get_cl_device();
 
   FILE *fp;
-  fp = fopen("mandelbrot.cl", "r");
+  fp = fopen(CLKERNELDEFS, "r");
   if (!fp) {
     fprintf(stderr, "Failed to load kernel.\n");
     return(1);
@@ -198,6 +259,46 @@ int init_mandelbrot ()
 
   if (!error)
     mandelbrot_init = 1;
+
+  return error;
+}
+
+int init_mandelbrotvis ()
+{
+  cl_int error;
+
+  if (mandelbrotvis_init)
+    return 1;
+
+  context = get_cl_context();
+  device = get_cl_device();
+
+  FILE *fp;
+  fp = fopen(CLKERNELDEFS, "r");
+  if (!fp) {
+    fprintf(stderr, "Failed to load kernel.\n");
+    return(1);
+  }
+  char *src = (char*) malloc (MAX_SOURCE_SIZE);
+  size_t srcsize = fread (src, 1, MAX_SOURCE_SIZE, fp);
+  fclose (fp);
+  const char *srcptr[]={src};
+
+  // build CL program with a USE_DOUBLE define if we found the correct extension
+  if (getCorrectDevice("cl_khr_fp64") == CL_SUCCESS) {
+    error = buildcl (srcptr, &srcsize, &progvis, "-D USE_DOUBLE -cl-fast-relaxed-math -cl-mad-enable");
+  }
+  else {
+    mandelbrot_cl_float = 1;
+    error = buildcl (srcptr, &srcsize, &progvis, "-D USE_FLOAT -cl-fast-relaxed-math -cl-mad-enable");
+  }
+  // create kernel
+  k_mandelbrotvis = clCreateKernel(progvis, "mandelbrot_vis", &error);
+  // get the shared CQ
+  cq = get_command_queue();
+
+  if (!error)
+    mandelbrotvis_init = 1;
 
   return error;
 }

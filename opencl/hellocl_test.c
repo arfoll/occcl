@@ -36,6 +36,33 @@ int mandelbrotTest(int verbose, int iterations) {
   return error;
 }
 
+int mandelbrotVisTest() {
+  cl_int error = CL_SUCCESS;
+
+  fprintf (stdout, "========= MANDELBROT VIS =========\n");
+  error = init_mandelbrotvis();
+  fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
+  cl_fract job[4] = {0.5, 534.086426, -0.271229, 1.159260};
+  cl_int *dataptr = (cl_int*)malloc(sizeof(cl_int)*240*320);
+  cl_int (*intdata)[320] = (cl_int*) dataptr;
+
+  mandelbrotvis(intdata, &job[0]);
+
+#if 0
+  int x, y;
+  for (y=0; y < 240; y++) {
+    for (x=0; x < 320; x++) {
+      //data[y][x] = 15728640;
+      printf ("%d,", intdata[y][x]);
+    }
+    printf ("\n");
+  }
+#endif
+  
+  free (dataptr);
+  return error;
+}
+
 int occoidsTest() {
   cl_int error = CL_SUCCESS;
 
