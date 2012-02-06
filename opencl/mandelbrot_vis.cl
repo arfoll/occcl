@@ -7,25 +7,17 @@
 
 #include "mandelbrot_cl.h"
 
-#if __OPENCL_VERSION__ < 110
-    #pragma OPENCL EXTENSION cl_khr_byte_addressable_store : enable
-#endif
-
-#ifndef cl_khr_byte_addressable_store
-    #error "This kernel requires byte-addressable store"
-#endif
-
-__kernel void mandelbrot (__global char (*data)[(IMAGEWIDTH*2)], __global floatcl *job)
+__kernel void mandelbrot_vis(__global int (*data)[IMAGEHEIGHTVIS][IMAGEWIDTHVIS], __global floatcl *job)
 {
-  char table_char[] = " .,*~*^:;|&[$%@#";
   const int idy = get_global_id(0); 
   const int idx = get_global_id(1);
+  const int idz = get_global_id(2);
+  int idzi = idz*5;
 
-  // this should not be done in the CL kernel
-  job[0] = (floatcl) idy - (IMAGEHEIGHT/2);
-  floatcl y = job[0]/job[1] - job[2];
+  job[idzi] = (floatcl) idy - (IMAGEHEIGHTVIS/2);
+  floatcl y = job[idzi]/job[idzi+1] - job[idzi+2];
 
-  floatcl real = (((idx - IMAGEHEIGHT) / (job[1] * 2.0)) - job[3]); 
+  floatcl real = (((idx - IMAGEHEIGHTVIS) / (job[idzi+1] * 2.0)) - job[idzi+3]); 
   floatcl imag = y;
   floatcl iter_real = 0.0; 
   floatcl iter_imag = 0.0; 
@@ -39,9 +31,7 @@ __kernel void mandelbrot (__global char (*data)[(IMAGEWIDTH*2)], __global floatc
     iter_imag = (imag + iter_i); 
     count++; 
   }
-  int val = count % 16;
-
-  data[idy][idx*2] = (char) (val % 6);
-  data[idy][(idx*2)+1] = table_char[val];
+  int val = count & 15;
+  data[idz][idy][idx] = -268435456 >> (val*2);
 }
 

@@ -80,7 +80,7 @@ void _mandelbrot (int *w)
 void _mandelbrotvis (int *w)
 { 
   cl_int *data = (cl_int*) w[0];
-  cl_fract *jobsarr = &jobs[w[4]*5*framesperworker];
+  cl_fract *jobsarr = &jobs[w[4]*JOBS_PER_FRAME];
   mandelbrotvis (data, (cl_fract*) jobsarr);
 }
 
@@ -94,6 +94,7 @@ void _initmandelbrotvis (int *w)
   viswidth = (int) w[0];
   visheight = (int) w[1];
   framesperworker = (int) w[2];
+//  printf("%d, %d, %d\n\n\n\n", viswidth, visheight, framesperworker);
   init_mandelbrotvis();
 }
 
@@ -190,13 +191,13 @@ int mandelbrotvis (cl_int *data, cl_fract *job)
   mem1 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_int)*(visheight*viswidth*framesperworker), 0, &error);
 
   if (mandelbrot_cl_float) {
-    cl_float jobfloat[framesperworker*5];
-    for (i=0; i<framesperworker*5; i++)
+    cl_float jobfloat[framesperworker*JOBS_PER_FRAME];
+    for (i=0; i<framesperworker*JOBS_PER_FRAME; i++)
       jobfloat[i] = (cl_float) job[i];
 
-    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*framesperworker*5, jobfloat, &error);
+    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*framesperworker*JOBS_PER_FRAME, jobfloat, &error);
   } else {
-    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_fract)*framesperworker*5, job, &error);
+    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_fract)*framesperworker*JOBS_PER_FRAME, job, &error);
   }
   
   // get a handle and map parameters for the kernel
@@ -294,7 +295,7 @@ void initialiseJobs()
   cl_fract ytarget = -0.27140215303;
 
   for (i = 0; i < NUM_ITERATIONS; i++) {
-    index = i*5;
+    index = i*JOBS_PER_FRAME;
     jobs[index] = i;
     jobs[index+1] = zoom;
     jobs[index+2] = ydrift;
@@ -320,7 +321,7 @@ int init_mandelbrotvis ()
   device = get_cl_device();
 
   FILE *fp;
-  fp = fopen(CLKERNELDEFS, "r");
+  fp = fopen(CLVISKERNELDEFS, "r");
   if (!fp) {
     fprintf(stderr, "Failed to load kernel.\n");
     return(1);
@@ -334,17 +335,23 @@ int init_mandelbrotvis ()
   numdevices = getNumDevices();
 
   // build CL program with a USE_DOUBLE define if we found the correct extension
+  char *precision = "             ";
   if (getCorrectDevice("cl_khr_fp64") == CL_SUCCESS) {
-    char options[MAX_BUILD_LINE_LENGTH];
-    char *compile_opt = "-cl-fast-relaxed-math -cl-mad-enable";
-    snprintf(options, MAX_BUILD_LINE_LENGTH,
-             "-D USE_DOUBLE -D IMAGEWIDTHVIS=%d -D IMAGEHEIGHTVIS=%d %s", viswidth, visheight, compile_opt);
-    error = buildcl (srcptr, &srcsize, &progvis[0], options, numdevices);
+    precision = "-D USE_DOUBLE";
   }
   else {
     mandelbrot_cl_float = 1;
-    error = buildcl (srcptr, &srcsize, &progvis[0], "-D USE_FLOAT -cl-fast-relaxed-math -cl-mad-enable", numdevices);
+    precision = "-D USE_FLOAT";
   }
+
+  char options[MAX_BUILD_LINE_LENGTH];
+  // following options seem to speed things up a little
+  char *compile_opt = "-cl-fast-relaxed-math -cl-mad-enable";
+  snprintf(options, MAX_BUILD_LINE_LENGTH,
+           "%s -D IMAGEWIDTHVIS=%d -D IMAGEHEIGHTVIS=%d %s", precision, viswidth, visheight, compile_opt);
+  error = buildcl (srcptr, &srcsize, &progvis[0], options, numdevices);
+//  printf("%s\n\n\n", options);
+
   // create kernel
   for (i=0; i<numdevices; i++) {
     k_mandelbrotvis[i] = clCreateKernel(progvis[i], "mandelbrot_vis", &error);

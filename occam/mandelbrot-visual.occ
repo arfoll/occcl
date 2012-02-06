@@ -40,18 +40,18 @@ DATA TYPE COMPLEX64
 VAL INT SIZE.MULTI IS 1:
 VAL INT IMAGE.WIDTH IS 320*SIZE.MULTI:
 VAL INT IMAGE.HEIGHT IS 240*SIZE.MULTI:
-VAL INT FRAMES.PER.WORKER IS 1:
+VAL INT FRAMES.PER.WORKER IS 2:
 
-VAL INT N.WORKERS IS 1:
+VAL INT N.WORKERS IS 2:
 VAL INT N.ITERS IS 850:
-VAL INT MAX.FRAMES IS 64:
+VAL INT MAX.FRAMES IS 128:
 
 VAL INT FRAME.SPEED IS 0:
 
 --{{{ external opencl functions
 #PRAGMA EXTERNAL "PROC C.initmandelbrotvis (VAL INT width, height, frames) = 0"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
-#PRAGMA EXTERNAL "PROC C.mandelbrotvis ([][]INT data, VAL INT jobid) = 0"
+#PRAGMA EXTERNAL "PROC C.mandelbrotvis ([][][]INT data, VAL INT jobid) = 0"
 #PRAGMA EXTERNAL "PROC C.destroycl () = 0"
 --}}}
 --{{{ external debug functions
@@ -101,7 +101,7 @@ PROC worker (SHARED CT.WORK.IN! link.in, SHARED CT.WORK.OUT! link.out)
   SEQ
     running := TRUE
     WHILE running
-      [IMAGE.HEIGHT][IMAGE.WIDTH]INT output:
+      [FRAMES.PER.WORKER][IMAGE.HEIGHT][IMAGE.WIDTH]INT output:
       INT jobid, frame:
       SEQ
         CLAIM link.in
@@ -113,18 +113,16 @@ PROC worker (SHARED CT.WORK.IN! link.in, SHARED CT.WORK.OUT! link.out)
           TRUE
             SEQ
               C.mandelbrotvis(output, jobid)
-              CLAIM link.out
-                link.out[out] ! jobid; 0; output
+              SEQ i=0 FOR FRAMES.PER.WORKER
+                CLAIM link.out
+                  SEQ
+                --    C.printfint(jobid+i)
+                    link.out[out] ! (jobid+i); 0; output[i]
 :
 
 PROC farmer (CT.WORK.IN? link.in, CHAN INT tick!, tock?, kill!)
-  INITIAL REAL64 zoom IS 16.0:
-  INITIAL REAL64 x.drift IS 0.0:
-  INITIAL REAL64 y.drift IS 0.0:
-  VAL REAL64 x.target IS  1.16000014859:
-  VAL REAL64 y.target IS -0.27140215303:
   SEQ
-    SEQ n = 0 FOR N.ITERS
+    SEQ n = 0 FOR N.ITERS/FRAMES.PER.WORKER
       SEQ
         --{{{  generate job
         SEQ
@@ -134,16 +132,8 @@ PROC farmer (CT.WORK.IN? link.in, CHAN INT tick!, tock?, kill!)
 
           -- give out job
           SEQ
-            link.in[in] ! n
+            link.in[in] ! n*FRAMES.PER.WORKER
         --}}}
-
-        zoom := zoom + (zoom / 32.0)
-
-        INITIAL REAL64 diff.x IS (x.target - x.drift):
-        INITIAL REAL64 diff.y IS (y.target - y.drift):
-        SEQ
-          x.drift := x.drift + (diff.x / 16.0)
-          y.drift := y.drift + (diff.y / 16.0)
 
     --{{{  gracefully shut-down workers
     SEQ n = 0 FOR N.WORKERS
@@ -176,7 +166,6 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN RASTER
           SEQ
             calc := frame \ MAX.FRAMES
             fcount[calc] := fcount[calc] - IMAGE.HEIGHT
-            --fcount[frame \ MAX.FRAMES] := fcount[frame \ MAX.FRAMES] - IMAGE.HEIGHT
             IF
               fcount[lframe \ MAX.FRAMES] = 0
                 -- got all results for the lowest frame
