@@ -208,16 +208,15 @@ int occoids (agentinfo *ai, vector *velocity, cl_int *size)
   cl_mem mem1, mem2, mem3;
   mem1 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(agentinfo)*(*size), ai, &error);
   mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(vector), velocity, &error);
-  mem3 = clCreateBuffer(*context, CL_MEM_READ_ONLY, sizeof(cl_int), NULL, &error);
+  mem3 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_int), &size, &error);
+
+  // write the arguments to memory
+//  error = clEnqueueWriteBuffer(*cq, mem3, CL_TRUE, 0, sizeof(cl_int), size, 0, NULL, NULL);
 
   // get a handle and map parameters for the kernel
   error = clSetKernelArg(k_occoids, 0, sizeof(mem1), &mem1);
   error = clSetKernelArg(k_occoids, 1, sizeof(mem2), &mem2);
   error = clSetKernelArg(k_occoids, 2, sizeof(mem3), &mem3);
-
-  // write the arguments to memory
-  //error = clEnqueueWriteBuffer(*cq, mem1, CL_FALSE, 0, sizeof(agentinfo)*(*size), ai, 0, NULL, NULL);
-  error = clEnqueueWriteBuffer(*cq, mem3, CL_FALSE, 0, sizeof(cl_int), size, 0, NULL, NULL);
 
   // Perform the operation, there is only work item in this case
   size_t worksize = 1;
