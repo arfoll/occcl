@@ -24,6 +24,8 @@ static int numdevices = 1;
 
 static int visheight = 240;
 static int viswidth = 320;
+static int framesperworker = 1;
+cl_fract jobs[NUM_JOBS];
 
 cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
 
@@ -78,7 +80,8 @@ void _mandelbrot (int *w)
 void _mandelbrotvis (int *w)
 { 
   cl_int *data = (cl_int*) w[0];
-  mandelbrotvis (data, (cl_fract*) (w[3]));
+  cl_fract *jobsarr = &jobs[w[3]*5*framesperworker];
+  mandelbrotvis (data, (cl_fract*) jobsarr);
 }
 
 void _initmandelbrot (int *w)
@@ -90,6 +93,7 @@ void _initmandelbrotvis (int *w)
 {
   viswidth = (int) w[0];
   visheight = (int) w[1];
+  framesperworker = (int) w[2];
   init_mandelbrotvis();
 }
 
@@ -176,32 +180,33 @@ int mandelbrotvis (cl_int *data, cl_fract *job)
 #if MULTI_GPUS 
   // move to new context/cq
   nextDevice();
-  cq = get_command_queue();
   currentdevice = getCurrentDevice();
+  cq = get_command_queue();
+  context = get_cl_context();
 #endif
 
   // Allocate memory for the kernel to work with
   cl_mem mem1, mem2;
-  mem1 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_int)*(visheight*viswidth), 0, &error);
+  mem1 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_int)*(visheight*viswidth*framesperworker), 0, &error);
 
   if (mandelbrot_cl_float) {
-    cl_float jobfloat[4];
-    for (i=0; i<4; i++)
+    cl_float jobfloat[framesperworker*5];
+    for (i=0; i<framesperworker*5; i++)
       jobfloat[i] = (cl_float) job[i];
 
-    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*4, jobfloat, &error);
+    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*framesperworker*5, jobfloat, &error);
   } else {
-    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_fract)*4, job, &error);
+    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_fract)*framesperworker*5, job, &error);
   }
   
   // get a handle and map parameters for the kernel
   error = clSetKernelArg(k_mandelbrotvis[currentdevice], 0, sizeof(mem1), &mem1);
   error = clSetKernelArg(k_mandelbrotvis[currentdevice], 1, sizeof(mem2), &mem2);
 
-  size_t worksize[3] = {visheight, viswidth, 0};
-  error = clEnqueueNDRangeKernel(*cq, k_mandelbrotvis[currentdevice], 2, NULL, &worksize[0], 0, 0, 0, 0);
+  size_t worksize[3] = {visheight, viswidth, framesperworker};
+  error = clEnqueueNDRangeKernel(*cq, k_mandelbrotvis[currentdevice], 3, NULL, &worksize[0], 0, 0, 0, 0);
   // Read the result back into data
-  error = clEnqueueReadBuffer(*cq, mem1, CL_TRUE, 0, sizeof(cl_int)*(visheight*viswidth), data, 0, 0, 0);
+  error = clEnqueueReadBuffer(*cq, mem1, CL_TRUE, 0, sizeof(cl_int)*(visheight*viswidth*framesperworker), data, 0, 0, 0);
 
   // cleanup - don't perform a flush as the queue is now shared between all executions. The
   // blocking clEnqueueReadBuffer should be enough
@@ -212,7 +217,7 @@ int mandelbrotvis (cl_int *data, cl_fract *job)
     fprintf (stderr, "ERROR! : %s\n", errorMessageCL(error));
     exit(10);
   }
- 
+
   return error;
 }
 
@@ -273,6 +278,36 @@ int init_mandelbrot ()
   return error;
 }
 
+/**
+ * Inialises the jobs array
+ */
+void initialiseJobs()
+{
+  int i, index;
+
+  cl_fract zoom = 16.0;
+  cl_fract xdrift = 0.0;
+  cl_fract ydrift = 0.0;
+  cl_fract diffx;
+  cl_fract diffy;
+  cl_fract xtarget = 1.16000014859;
+  cl_fract ytarget = -0.27140215303;
+
+  for (i = 0; i < NUM_ITERATIONS; i++) {
+    index = i*5;
+    jobs[index] = i;
+    jobs[index+1] = zoom;
+    jobs[index+2] = ydrift;
+    jobs[index+3] = xdrift;
+
+    zoom = zoom + (zoom / 32.0);
+    diffx = xtarget - xdrift;
+    diffy = ytarget - ydrift;
+    xdrift = xdrift + (diffx / 16.0);
+    ydrift = ydrift + (diffy / 16.0);
+  }
+}
+
 int init_mandelbrotvis ()
 {
   int i;
@@ -316,6 +351,9 @@ int init_mandelbrotvis ()
   }
   // get the shared CQ
   cq = get_command_queue();
+
+  // initialise the jobs array
+  initialiseJobs();
 
   if (!error)
     mandelbrotvis_init = 1;

@@ -49,16 +49,16 @@ VAL INT MAX.FRAMES IS 64:
 VAL INT FRAME.SPEED IS 0:
 
 --{{{ external opencl functions
-#PRAGMA EXTERNAL "PROC C.initmandelbrotvis (VAL INT width, height) = 0"
+#PRAGMA EXTERNAL "PROC C.initmandelbrotvis (VAL INT width, height, frames) = 0"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
-#PRAGMA EXTERNAL "PROC C.mandelbrotvis ([][]INT data, []REAL64 job) = 0"
+#PRAGMA EXTERNAL "PROC C.mandelbrotvis ([][]INT data, VAL INT jobid) = 0"
 #PRAGMA EXTERNAL "PROC C.destroycl () = 0"
 --}}}
 --{{{ external debug functions
 #PRAGMA EXTERNAL "PROC C.printfint (VAL INT int) = 0"
 --}}}
 
-PROTOCOL P.JOB.IN IS INT; INT; [4]REAL64:
+PROTOCOL P.JOB.IN IS INT:
 PROTOCOL P.JOB.OUT IS INT; INT; [IMAGE.HEIGHT][IMAGE.WIDTH]INT:
 
 CHAN TYPE CT.WORK.IN
@@ -101,21 +101,20 @@ PROC worker (SHARED CT.WORK.IN! link.in, SHARED CT.WORK.OUT! link.out)
   SEQ
     running := TRUE
     WHILE running
-      [4]REAL64 job:
       [IMAGE.HEIGHT][IMAGE.WIDTH]INT output:
       INT jobid, frame:
       SEQ
         CLAIM link.in
-          link.in[in] ? frame; jobid; job
+          link.in[in] ? jobid
            
         IF
-          (jobid = (-1)) OR (frame = (-1))
+          (jobid = (-1))
             running := FALSE
           TRUE
             SEQ
-              C.mandelbrotvis(output, job)
+              C.mandelbrotvis(output, jobid)
               CLAIM link.out
-                link.out[out] ! frame; jobid; output
+                link.out[out] ! jobid; 0; output
 :
 
 PROC farmer (CT.WORK.IN? link.in, CHAN INT tick!, tock?, kill!)
@@ -134,14 +133,8 @@ PROC farmer (CT.WORK.IN? link.in, CHAN INT tick!, tock?, kill!)
           tock ? any 
 
           -- give out job
-          [4]REAL64 wpacket:
           SEQ
-            wpacket[0] := (0.5)
-            wpacket[1] := zoom
-            wpacket[2] := y.drift
-            wpacket[3] := x.drift
-
-            link.in[in] ! n; 0; wpacket
+            link.in[in] ! n
         --}}}
 
         zoom := zoom + (zoom / 32.0)
@@ -154,8 +147,7 @@ PROC farmer (CT.WORK.IN? link.in, CHAN INT tick!, tock?, kill!)
 
     --{{{  gracefully shut-down workers
     SEQ n = 0 FOR N.WORKERS
-      INITIAL [4]REAL64 wpacket IS [i = 0 FOR 4 | 0.0]:
-      link.in[in] ! -1; -1; wpacket
+      link.in[in] ! -1
     --}}}
 
     kill ! 0
@@ -227,7 +219,7 @@ PROC mandelbrot (CHAN BYTE kyb?, scr!, err!)
 
     --{{{ initialise openCL and mandelbrot CL kernel
     C.initialisecl()
-    C.initmandelbrotvis (IMAGE.WIDTH, IMAGE.HEIGHT)
+    C.initmandelbrotvis (IMAGE.WIDTH, IMAGE.HEIGHT, FRAMES.PER.WORKER)
     --}}}
     
     CHAN INT tick, tock, kill:

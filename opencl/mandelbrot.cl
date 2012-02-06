@@ -7,16 +7,17 @@
 
 #include "mandelbrot_cl.h"
 
-__kernel void mandelbrot_vis(__global int (*data)[IMAGEWIDTHVIS], __global floatcl *job)
+__kernel void mandelbrot_vis(__global int (*data)[IMAGEHEIGHTVIS][IMAGEWIDTHVIS], __global floatcl *job)
 {
   const int idy = get_global_id(0); 
   const int idx = get_global_id(1);
+  const int idz = get_global_id(2);
+  int idzi = idz*5;
 
-  // this should not be done in the CL kernel
-  job[0] = (floatcl) idy - (IMAGEHEIGHTVIS/2);
-  floatcl y = job[0]/job[1] - job[2];
+  job[idzi] = (floatcl) idy - (IMAGEHEIGHTVIS/2);
+  floatcl y = job[idzi]/job[idzi+1] - job[idzi+2];
 
-  floatcl real = (((idx - IMAGEHEIGHTVIS) / (job[1] * 2.0)) - job[3]); 
+  floatcl real = (((idx - IMAGEHEIGHTVIS) / (job[idzi+1] * 2.0)) - job[idzi+3]); 
   floatcl imag = y;
   floatcl iter_real = 0.0; 
   floatcl iter_imag = 0.0; 
@@ -31,7 +32,7 @@ __kernel void mandelbrot_vis(__global int (*data)[IMAGEWIDTHVIS], __global float
     count++; 
   }
   int val = count & 15;
-  data[idy][idx] = -268435456 >> (val*2);
+  data[idz][idy][idx] = -268435456 >> (val*2);
 }
 
 #if __OPENCL_VERSION__ < 110

@@ -19,8 +19,10 @@
 #define MAX_SOURCE_SIZE (0x100000)
 #define CLKERNELDEFS "mandelbrot.cl"
 #define NUM_GPUS 1
-#define MULTI_GPUS 1
+#define MULTI_GPUS 0
 #define MAX_BUILD_LINE_LENGTH 1024
+#define NUM_JOBS 4250
+#define NUM_ITERATIONS 850
 
 #define DEBUG 0
 #define CLMANDEL 1
