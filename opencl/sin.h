@@ -13,6 +13,8 @@
 
 #include "initial.h"
 
+#define NUM_GPUS 1
+
 int clsin (cl_float *data);
 int init_sin ();
 

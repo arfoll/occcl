@@ -15,6 +15,8 @@
 #include "initial.h"
 
 #define MAX_SOURCE_SIZE (0x100000)
+#define NUM_GPUS 1
+
 #define CLOCCOIDS 1
 #define DEBUG 0
 

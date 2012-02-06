@@ -72,7 +72,7 @@ int init_modulo()
   const char *srcptr[]={src};
 
   // build CL program
-  error = buildcl (srcptr, &srcsize, &prog, "");
+  error = buildcl (srcptr, &srcsize, &prog, "", NUM_GPUS);
   // create kernel
   k_modulo = clCreateKernel(prog, "modulo", &error);
   // get the shared CQ

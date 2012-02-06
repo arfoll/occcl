@@ -7,16 +7,20 @@
 
 #include "mandelbrot.h"
 
+#define MAX_GPUS 4
+
 static int mandelbrot_init = 0;
 static int mandelbrotvis_init = 0;
 static int mandelbrot_cl_float;
 static cl_context *context;
 static cl_device_id *device;
 static cl_program prog;
-static cl_program progvis;
+static cl_program progvis[MAX_GPUS];
 static cl_kernel k_mandelbrot;
-static cl_kernel k_mandelbrotvis;
+static cl_kernel k_mandelbrotvis[MAX_GPUS];
 static cl_command_queue *cq;
+static int currentdevice = 0;
+static int numdevices = 1;
 
 cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
 
@@ -164,10 +168,11 @@ int mandelbrotvis (cl_int (*data)[IMAGEWIDTHVIS], cl_fract *job)
   cl_int error;
   int i;
 
-#if ERROR_CHECK
-  if (progvis == NULL) {
-    init_mandelbrotvis();
-  }
+#if MULTI_GPUS 
+  // move to new context/cq
+  nextDevice();
+  cq = get_command_queue();
+  currentdevice = getCurrentDevice();
 #endif
 
   // Allocate memory for the kernel to work with
@@ -185,11 +190,11 @@ int mandelbrotvis (cl_int (*data)[IMAGEWIDTHVIS], cl_fract *job)
   }
   
   // get a handle and map parameters for the kernel
-  error = clSetKernelArg(k_mandelbrotvis, 0, sizeof(mem1), &mem1);
-  error = clSetKernelArg(k_mandelbrotvis, 1, sizeof(mem2), &mem2);
+  error = clSetKernelArg(k_mandelbrotvis[currentdevice], 0, sizeof(mem1), &mem1);
+  error = clSetKernelArg(k_mandelbrotvis[currentdevice], 1, sizeof(mem2), &mem2);
 
   size_t worksize[3] = {IMAGEHEIGHTVIS, IMAGEWIDTHVIS, 0};
-  error = clEnqueueNDRangeKernel(*cq, k_mandelbrotvis, 2, NULL, &worksize[0], 0, 0, 0, 0);
+  error = clEnqueueNDRangeKernel(*cq, k_mandelbrotvis[currentdevice], 2, NULL, &worksize[0], 0, 0, 0, 0);
   // Read the result back into data
   error = clEnqueueReadBuffer(*cq, mem1, CL_TRUE, 0, sizeof(cl_int)*(IMAGEHEIGHTVIS*IMAGEWIDTHVIS), data, 0, 0, 0);
 
@@ -246,11 +251,11 @@ int init_mandelbrot ()
 
   // build CL program with a USE_DOUBLE define if we found the correct extension
   if (getCorrectDevice("cl_khr_fp64") == CL_SUCCESS) {
-    error = buildcl (srcptr, &srcsize, &prog, "-D USE_DOUBLE -cl-fast-relaxed-math -cl-mad-enable");
+    error = buildcl (srcptr, &srcsize, &prog, "-D USE_DOUBLE -cl-fast-relaxed-math -cl-mad-enable", NUM_GPUS);
   }
   else {
     mandelbrot_cl_float = 1;
-    error = buildcl (srcptr, &srcsize, &prog, "-D USE_FLOAT -cl-fast-relaxed-math -cl-mad-enable");
+    error = buildcl (srcptr, &srcsize, &prog, "-D USE_FLOAT -cl-fast-relaxed-math -cl-mad-enable", NUM_GPUS);
   }
   // create kernel
   k_mandelbrot = clCreateKernel(prog, "mandelbrot", &error);
@@ -265,6 +270,7 @@ int init_mandelbrot ()
 
 int init_mandelbrotvis ()
 {
+  int i;
   cl_int error;
 
   if (mandelbrotvis_init)
@@ -284,16 +290,21 @@ int init_mandelbrotvis ()
   fclose (fp);
   const char *srcptr[]={src};
 
+  // get the number of GPUS/DEVICES available
+  numdevices = getNumDevices();
+
   // build CL program with a USE_DOUBLE define if we found the correct extension
   if (getCorrectDevice("cl_khr_fp64") == CL_SUCCESS) {
-    error = buildcl (srcptr, &srcsize, &progvis, "-D USE_DOUBLE -cl-fast-relaxed-math -cl-mad-enable");
+    error = buildcl (srcptr, &srcsize, &progvis[0], "-D USE_DOUBLE -cl-fast-relaxed-math -cl-mad-enable", numdevices);
   }
   else {
     mandelbrot_cl_float = 1;
-    error = buildcl (srcptr, &srcsize, &progvis, "-D USE_FLOAT -cl-fast-relaxed-math -cl-mad-enable");
+    error = buildcl (srcptr, &srcsize, &progvis[0], "-D USE_FLOAT -cl-fast-relaxed-math -cl-mad-enable", numdevices);
   }
   // create kernel
-  k_mandelbrotvis = clCreateKernel(progvis, "mandelbrot_vis", &error);
+  for (i=0; i<numdevices; i++) {
+    k_mandelbrotvis[i] = clCreateKernel(progvis[i], "mandelbrot_vis", &error);
+  }
   // get the shared CQ
   cq = get_command_queue();
 

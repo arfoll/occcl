@@ -13,13 +13,13 @@
 
 #define DEBUG 1
 
-static cl_context context;
+static cl_platform_id platform;
 static cl_device_id *device;
 static cl_uint numdevices;
 static cl_uint currentdevice = 0;
-static cl_command_queue cq;
-static cl_platform_id platform;
 static cl_device_id devices[NUM_DEVICES];
+static cl_command_queue cq[NUM_DEVICES];
+static cl_context context[NUM_DEVICES];
 
 /**
  * Occam-pi call for initialisecl
@@ -47,6 +47,7 @@ cl_int initialisecl()
 #if ERROR_CHECK
   if (context == NULL) {
 #endif
+    int i;
     cl_int error;
     cl_uint platforms;
     device = &devices[currentdevice];
@@ -57,9 +58,18 @@ cl_int initialisecl()
       fprintf(stderr, "Error getting platform ids: %s", errorMessageCL(error));
     }
 
-    error = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, NUM_DEVICES, device, &numdevices);
+    // prefer GPUs
+    error = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, NUM_DEVICES, device, &numdevices);
     if (error != CL_SUCCESS) {
-      fprintf(stderr, "Error getting device ids: %s", errorMessageCL(error));
+      fprintf(stderr, "Couldn't get a CL_DEVICE_TYPE_GPU: %s", errorMessageCL(error));
+    }
+
+    // we don't have any GPU devices
+    if (numdevices > 0) {
+      error = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, NUM_DEVICES, device, &numdevices);
+      if (error != CL_SUCCESS) {
+        fprintf(stderr, "Error getting device ids: %s", errorMessageCL(error));
+      }
     }
 
     cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
@@ -67,16 +77,19 @@ cl_int initialisecl()
       fprintf(stderr, "Error getting platform properties: %s", errorMessageCL(error));
     }
 
-    //AMD stream SDK requires the platform property
-    context = clCreateContext(properties, 1, device, NULL, NULL, &error);
-    if (error != CL_SUCCESS) {
-      fprintf(stderr, "Error creating context: %s", errorMessageCL(error));
-    }
+    // do this for every openCL device
+    for (i=0; i<numdevices; i++) { 
+      //AMD stream SDK requires the platform property
+      context[i] = clCreateContext(properties, 1, &devices[i], NULL, NULL, &error);
+      if (error != CL_SUCCESS) {
+        fprintf(stderr, "Error creating context: %s", errorMessageCL(error));
+      }
 
-    //Create command queue
-    cq = clCreateCommandQueue(context, *device, 0, &error);
-    if (error) {
-      fprintf (stderr, "ERROR at CQ create! : %s\n", errorMessageCL(error));
+      //Create command queue
+      cq[i] = clCreateCommandQueue(context[i], device[i], 0, &error);
+      if (error) {
+        fprintf (stderr, "ERROR creating command queue: %s\n", errorMessageCL(error));
+      }
     }
 
     return error;
@@ -93,7 +106,7 @@ cl_int destroycl()
 {
   cl_int error;
 
-  error = clReleaseCommandQueue(cq);
+  error = clReleaseCommandQueue(cq[currentdevice]);
 
   return error;
 }
@@ -186,10 +199,13 @@ int extSupported(char *ext)
  */
 void nextDevice()
 {
-  if (numdevices > 1 && currentdevice < numdevices)
-    device = &devices[(currentdevice + 1)];
-  else
-    device = &devices[0];
+  if (numdevices > 1 && currentdevice < numdevices) {
+    device = &devices[(currentdevice++)];
+  }
+  else {
+    currentdevice = 0;
+    device = &devices[currentdevice];
+  }
 }
 
 /**
@@ -201,15 +217,27 @@ int getMaxDevices()
 }
 
 /**
+ * Get the current CL device
+ */
+int getCurrentDevice()
+{
+  return currentdevice;
+}
+
+/**
  * builds the CL program from src and returns and return it
  */
-cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog, const char *options)
+cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog, const char *options, cl_int num_progs)
 {
   cl_int error;
-  //Submit the source code of the rot13 kernel to OpenCL
-  *prog = clCreateProgramWithSource(context, 1, srcptr, srcsize, &error);
-  //and compile it (after this we could extract the compiled version)
-  error = clBuildProgram(*prog, 0, NULL, options, NULL, NULL);
+  int i;
+
+  for (i=0; i<num_progs; i++) {
+    //Submit the source code of the rot13 kernel to OpenCL
+    prog[i] = clCreateProgramWithSource(context[currentdevice], 1, srcptr, srcsize, &error);
+    //and compile it (after this we could extract the compiled version)
+    error = clBuildProgram(prog[i], 0, NULL, options, NULL, NULL);
+  }
 
 // TODO: ERROR_CHECK not DEBUG
 #if DEBUG
@@ -259,7 +287,7 @@ int getCorrectDevice(char *requiredExt)
  */
 cl_context* get_cl_context()
 {
-  return &context;
+  return &context[currentdevice];
 }
 
 /**
@@ -275,7 +303,12 @@ cl_device_id* get_cl_device()
  */
 cl_command_queue* get_command_queue()
 {
-  return &cq;
+  return &cq[currentdevice];
+}
+
+int getNumDevices()
+{
+  return numdevices;
 }
 
 /**

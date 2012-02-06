@@ -12,6 +12,8 @@
 #include <string.h>
 #include "initial.h"
 
+#define NUM_GPUS 1
+
 int init_modulo ();
 int modulo (cl_int *num, cl_float *mod, cl_float *amount);
 

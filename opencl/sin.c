@@ -65,7 +65,7 @@ int init_sin ()
   const char *srcptr[]={src};
 
   // build CL program
-  error = buildcl (srcptr, &srcsize, &prog, "");
+  error = buildcl (srcptr, &srcsize, &prog, "", NUM_GPUS);
   // create kernel
   k_sin = clCreateKernel(prog, "sin_cl", &error);
   // get the shared CQ
