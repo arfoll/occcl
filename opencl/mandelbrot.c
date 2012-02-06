@@ -80,7 +80,7 @@ void _mandelbrot (int *w)
 void _mandelbrotvis (int *w)
 { 
   cl_int *data = (cl_int*) w[0];
-  cl_fract *jobsarr = &jobs[w[3]*5*framesperworker];
+  cl_fract *jobsarr = &jobs[w[4]*5*framesperworker];
   mandelbrotvis (data, (cl_fract*) jobsarr);
 }
 
