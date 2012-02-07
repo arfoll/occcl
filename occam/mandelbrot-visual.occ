@@ -37,15 +37,18 @@ DATA TYPE COMPLEX64
 -- if running in opencl mode it is workth remembering that cuda 1.x cards
 -- max worksize is 512x512x32 and cuda 2.x cards can do 1024x1024x64
 --}}}
+-- max multiplier on cuda 1.x cards is 1, but a size of 512x can be used
 VAL INT SIZE.MULTI IS 1:
 VAL INT IMAGE.WIDTH IS 320*SIZE.MULTI:
 VAL INT IMAGE.HEIGHT IS 240*SIZE.MULTI:
-VAL INT FRAMES.PER.WORKER IS 2:
-
+-- Reduce this value on smaller GPUs
+VAL INT FRAMES.PER.WORKER IS 3:
+-- Value should reflect how many parralel opencl kernels you want to run
 VAL INT N.WORKERS IS 2:
+-- N.ITERS should be < 850 to avoid picture loss
 VAL INT N.ITERS IS 850:
-VAL INT MAX.FRAMES IS 128:
-
+-- MAX.FRAMES is actually FRAMES.PER.WORKER * MAX.FRAMES
+VAL INT MAX.FRAMES IS 32:
 VAL INT FRAME.SPEED IS 0:
 
 --{{{ external opencl functions
@@ -59,7 +62,7 @@ VAL INT FRAME.SPEED IS 0:
 --}}}
 
 PROTOCOL P.JOB.IN IS INT:
-PROTOCOL P.JOB.OUT IS INT; INT; [IMAGE.HEIGHT][IMAGE.WIDTH]INT:
+PROTOCOL P.JOB.OUT IS INT; INT; [FRAMES.PER.WORKER][IMAGE.HEIGHT][IMAGE.WIDTH]INT:
 
 CHAN TYPE CT.WORK.IN
   MOBILE RECORD
@@ -113,11 +116,9 @@ PROC worker (SHARED CT.WORK.IN! link.in, SHARED CT.WORK.OUT! link.out)
           TRUE
             SEQ
               C.mandelbrotvis(output, jobid)
-              SEQ i=0 FOR FRAMES.PER.WORKER
-                CLAIM link.out
-                  SEQ
-                --    C.printfint(jobid+i)
-                    link.out[out] ! (jobid+i); 0; output[i]
+              CLAIM link.out
+                SEQ
+                  link.out[out] ! (jobid); 0; output
 :
 
 PROC farmer (CT.WORK.IN? link.in, CHAN INT tick!, tock?, kill!)
@@ -144,7 +145,7 @@ PROC farmer (CT.WORK.IN? link.in, CHAN INT tick!, tock?, kill!)
 :
 
 PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN RASTER scr.in?, scr.out!)
-  [MAX.FRAMES][IMAGE.HEIGHT][IMAGE.WIDTH]INT framebuffer:
+  [MAX.FRAMES][FRAMES.PER.WORKER][IMAGE.HEIGHT][IMAGE.WIDTH]INT framebuffer:
   [MAX.FRAMES]INT fcount:
   TIMER tim:
   INT t:
@@ -171,22 +172,20 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN RASTER
                 -- got all results for the lowest frame
                 INITIAL INT lbuf IS (lframe \ MAX.FRAMES):
                 SEQ
-                  tim ? AFTER t
-                  --C.printfint(frame)
-                  --C.printfint(framebuffer[lbuf][0][0])
-
                   fcount[lbuf] := IMAGE.HEIGHT
-                  --{{{  dump framebuffer[lbuf]
+                  --{{{
                   RASTER r:
                   SEQ
-                    scr.in ? r
-                    SEQ j = 0 FOR IMAGE.HEIGHT
-                      r[j] := framebuffer[lbuf][j]
-                    scr.out ! r
+                    SEQ f = 0 FOR FRAMES.PER.WORKER
+                      SEQ
+                        tim ? AFTER t
+                        scr.in ? r
+                        SEQ j = 0 FOR IMAGE.HEIGHT
+                          r[j] := framebuffer[lbuf][f][j]
+                        scr.out ! r
+                        t := t PLUS frame.speed
                   --}}}
-                  lframe := lframe + 1
-
-                  t := t PLUS frame.speed
+                  lframe := lframe + FRAMES.PER.WORKER
               TRUE
                 SKIP
         (hframe <= (lframe + 4)) & tick ? hframe
