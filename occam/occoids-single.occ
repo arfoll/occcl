@@ -88,6 +88,29 @@ DATA TYPE AGENT.INFO
     INT colour:
 :
 
+CHAN TYPE BOID.RESPONSE
+  MOBILE RECORD
+    CHAN [4]INT data?:
+    CHAN BOOL ready?:
+:
+
+PROTOCOL BOID.REQUEST.IN
+  CASE
+    register; BOID.RESPONSE!
+    do.work; INT; [4]INT
+:
+
+PROTOCOL BOID.REQUEST.OUT
+  CASE
+    id; INT
+:
+
+CHAN TYPE BOID.REQUEST
+  MOBILE RECORD
+    CHAN BOID.REQUEST.IN in?:
+    CHAN BOID.REQUEST.OUT out!:
+:
+
 --{{{  opencl call
 -- pack the data as INT[3], REAL32[7]
 -- local.id, type, colour
@@ -611,9 +634,31 @@ PROC main (SHARED CHAN BYTE err!)
   :
   --}}}
 
+  --{{{  PROC store
+--  PROC store(MOBILE AGENT.CL? cli)
+--    [100]AGENT.INFO infos:
+--    [100]VECTOR velocities:
+--    INITIAL INT current IS 0:
+--    WHILE TRUE
+--      SEQ
+--        cli[current] ? velocities[current]; infos[current]
+--        curent := current + 1
+--        IF
+--          current = 100
+--            SEQ
+--              PAR
+--                C.occoids(infos, velocities)
+--                current := 0
+--              PAR i=0 FOR 100
+--                cli[i] ! velocities[i]; infos[i]
+--          TRUE
+--            SKIP 
+--  :
+  --}}}
+
   --{{{  PROC boid
   --* An actor implementing the Boids flocking algorithm.
-  PROC boid (VAL INT id, AGENT.CT! cli, VAL VECTOR init.velocity, MOBILE BARRIER bar, SHARED CHAN BYTE err!)
+  PROC boid (VAL INT id, AGENT.CT! cli, VAL VECTOR init.velocity, MOBILE BARRIER bar, SHARED CHAN BYTE err!, SHARED BOID.REQUEST! to.thing)
     PROC report (CHAN BYTE out!)
       SEQ
         out.string ("Boid(", 0, out!)
@@ -711,151 +756,113 @@ PROC main (SHARED CHAN BYTE err!)
     :
     --}}}
 
-    --{{{  PROC centre.of.mass.rule
-    PROC centre.of.mass.rule (VAL []AGENT.INFO infos, VECTOR accel)
-      INITIAL VECTOR com IS [0.0, 0.0]:
-      SEQ
-        --{{{  find centre of mass of agents we can see
-        IF
-          (SIZE infos) > 0
-            SEQ
-              SEQ i = 0 FOR SIZE infos
-                com := com + infos[i][position]
-              com := com / (REAL32 ROUND (SIZE infos))
-          TRUE
-            SKIP
-        --}}}
-
-        accel := accel + (com / CENTRE.OF.MASS.FRACTION)
-    :
-    --}}}
-    --{{{  PROC repulsion.rule
-    PROC repulsion.rule (VAL []AGENT.INFO infos, VECTOR accel)
-      INITIAL VECTOR push IS [0.0, 0.0]:
-      SEQ
-        SEQ i = 0 FOR SIZE infos
-          VAL VECTOR pos IS infos[i][position]:
-          IF
-            magnitude2 (pos) < (REPULSION.DISTANCE * REPULSION.DISTANCE)
-              --{{{  this one's close; move away from it
-              push := push - pos
-              --}}}
-            TRUE
-              SKIP
-
-        accel := accel + (push / REPULSION.FRACTION)
-    :
-    --}}}
-    --{{{  PROC mean.velocity.rule
-    PROC mean.velocity.rule (VAL []AGENT.INFO infos, VAL VECTOR my.velocity, VECTOR accel)
-      INITIAL VECTOR perceived.velocity IS [0.0, 0.0]:
-      SEQ
-        IF
-          (SIZE infos) > 0
-            SEQ
-              SEQ i = 0 FOR SIZE infos
-                perceived.velocity := perceived.velocity + infos[i][velocity]
-              perceived.velocity := perceived.velocity / (REAL32 ROUND (SIZE infos))
-          TRUE
-            SKIP
-        perceived.velocity := perceived.velocity - my.velocity
-
-        accel := accel + (perceived.velocity / MEAN.VELOCITY.FRACTION)
-    :
-    --}}}
-
-    --{{{  PROC obstacle.rule
-    PROC obstacle.rule (VAL []AGENT.INFO infos, VECTOR accel)
-      INITIAL VECTOR push IS [0.0, 0.0]:
-      SEQ
-        SEQ i = 0 FOR SIZE infos
-          --{{{  compute how hard to push away from this object
-          VAL VECTOR pos IS infos[i][position]:
-          VAL REAL32 dist IS SQRT (magnitude2 (pos)) - infos[i][radius]:
-          IF
-            dist < 0.0
-              --{{{  past the soft threshold; push back hard
-              push := push - pos
-              --}}}
-            dist < SOFT.THRESHOLD
-              --{{{  inside the soft threshold; push back a variable amount
-              push := push - (pos * (1.0 (REAL32) - (dist / SOFT.THRESHOLD)))
-              --}}}
-            TRUE
-              --{{{  nowhere near
-              SKIP
-              --}}}
-          --}}}
-
-        accel := accel + (push / OBSTACLE.FRACTION)
-    :
-    --}}}
-
-    --{{{  PROC accelerate
-    PROC accelerate (VECTOR velocity, VAL VECTOR acceleration)
-      --{{{  PROC clamp
-      --* Clamp values that are close to zero to actually be zero.
-      -- This avoids underflow problems.
-      PROC clamp (REAL32 r)
-        IF
-          ABS (r) < EPSILON
-            r := 0.0
-          TRUE
-            SKIP
-      :
-      --}}}
-
-      VAL REAL32 SPEED.LIMIT2 IS SPEED.LIMIT * SPEED.LIMIT:
-      REAL32 mag:
-      SEQ
-        velocity := velocity + (acceleration / SMOOTH.ACCELERATION)
-        clamp (velocity[x])
-        clamp (velocity[y])
-
-        --{{{  apply speed limit
-        mag := magnitude2 (velocity)
-        --C.printfreal(SPEED.LIMIT2)
-        IF
-          mag > SPEED.LIMIT2
-            velocity := velocity / (mag / SPEED.LIMIT2)
-          TRUE
-            SKIP
-        --}}}
-    :
-    --}}}
-
     INITIAL VECTOR velocity IS init.velocity:
     INITIAL MOBILE []AGENT.INFO raw.infos IS MOBILE [1]AGENT.INFO:
     INITIAL MOBILE []AGENT.INFO boid.infos IS MOBILE [1]AGENT.INFO:
     INITIAL MOBILE []AGENT.INFO obstacle.infos IS MOBILE [1]AGENT.INFO:
---    INITIAL MOBILE []REAL32 floats IS MOBILE[1]REAL32:
---    INITIAL MOBILE []INT ints IS MOBILE[1]INT:
-    WHILE TRUE
-      INITIAL VECTOR accel IS [0.0, 0.0]:
-      MOBILE [][]INT ints:
-      MOBILE [][]REAL32 floats:
-      INT size:
-      SEQ
-        SYNC bar -- Phase 1
+    BOID.RESPONSE? r.svr:
+    BOID.RESPONSE! r.cli:
+    INT my.id:
+    SEQ
+      --{{{ register our boids
+      r.svr, r.cli := MOBILE BOID.RESPONSE
+      CLAIM to.thing!
+        SEQ
+          to.thing[in] ! register; r.cli
+          to.thing[out] ? CASE id; my.id
 
-        --{{{  get raw info
-        cli[req] ! look; raw.infos
-        cli[resp] ? CASE seen; raw.infos
-        --}}}
+--      CLAIM err!
+--        out.string ("boid initialised!*n", 0, err!)
+      BOOL any:
+      r.svr[ready] ? any
+      --}}}
 
-        filter.infos (raw.infos, velocity, boid.infos, obstacle.infos)
+      WHILE TRUE
+        SEQ
+--          CLAIM err!
+--            out.string ("stuck at sync bar*n", 0, err!)
+--          SYNC bar -- Phase 1
+--          CLAIM err!
+--            out.string ("not stcuk at bar*n", 0, err!)
 
-        C.occoids(boid.infos, velocity)
+          --{{{  get raw info
+          cli[req] ! look; raw.infos
+          cli[resp] ? CASE seen; raw.infos
+          --}}}
 
-        cli[req] ! move; velocity
+          filter.infos (raw.infos, velocity, boid.infos, obstacle.infos)
 
-        SYNC bar -- Phase 2
+--          C.occoids(boid.infos, velocity)
+
+          cli[req] ! move; velocity
+
+--          SYNC bar -- Phase 2
   :
   --}}}
 
+  PROC guts (BOID.REQUEST? svr, SHARED CHAN BYTE err!)
+    MOBILE []BOID.RESPONSE! clients:
+    SEQ
+      clients := MOBILE [INITIAL.BOIDS]BOID.RESPONSE!
+
+      SEQ i = 0 FOR INITIAL.BOIDS
+        BOID.RESPONSE! tmp:
+        SEQ
+          svr[in] ? CASE register; tmp
+          clients[i] := tmp
+          svr[out] ! id; i
+
+      CLAIM err!
+        out.string ("all boids registered!*n", 0, err!)
+
+      PAR i = 0 FOR INITIAL.BOIDS
+        clients[i][ready] ! TRUE
+
+      CLAIM err!
+        out.string ("boids are ready!*n", 0, err!)
+
+      WHILE TRUE
+        [INITIAL.BOIDS][4]INT data.in:
+        SEQ
+          SEQ i = 0 FOR INITIAL.BOIDS
+            INT id:
+            SEQ
+              svr[in] ? CASE
+                do.work; id; data.in[id]
+                  SKIP
+
+          -- do big computation thing
+          CLAIM err!
+            SEQ
+              err ! '.'
+              err ! #FF
+
+          SEQ i = 0 FOR INITIAL.BOIDS
+            clients[i][data] ! data.in[i]
+  :
+
   --{{{  PROC spawn.actor
   --* Spawn a new actor into the grid.
-  PROC spawn.actor (VAL INT id, type, INT seed, SHARED LOC.CT! location, MOBILE BARRIER bar)
+  PROC spawn.actor (INT seed, SHARED LOC.CT! location, MOBILE BARRIER bar)
+    AGENT.CT? svr:
+    AGENT.CT! cli:
+    AGENT.INFO info:
+    SEQ
+      cli, svr := MOBILE AGENT.CT
+      info[type] := AT.CYLINDER 
+      random.vector (1.0, seed, info[position])
+      SEQ
+        info[velocity] := [0.0, 0.0]
+        info[radius], seed := random.real32 (MAX.CYLINDER.RADIUS - MIN.CYLINDER.RADIUS, seed)
+        info[radius] := info[radius] + MIN.CYLINDER.RADIUS
+        info[colour] := #FFFFFF
+      FORK agent (svr, location, info, err!)
+  :
+  --}}}
+
+  --{{{  PROC spawn.boid
+  --* Spawn a new boid into the grid.
+  PROC spawn.boid (VAL INT id, type, INT seed, SHARED LOC.CT! location, MOBILE BARRIER bar, SHARED BOID.REQUEST! to.thing)
     AGENT.CT? svr:
     AGENT.CT! cli:
     AGENT.INFO info:
@@ -871,15 +878,7 @@ PROC main (SHARED CHAN BYTE err!)
             info[velocity] := info[velocity] - [MAX.INIT.VELOCITY, MAX.INIT.VELOCITY] (VECTOR)
             info[radius] := 0.0
             info[colour] := hsv.to.rgb ((REAL32 ROUND id) / (REAL32 ROUND INITIAL.BOIDS), 0.6, 1.0)
-            FORK boid (id, cli, info[velocity], bar, err!)
-          --}}}
-        AT.CYLINDER
-          --{{{  spawn an obstacle
-          SEQ
-            info[velocity] := [0.0, 0.0]
-            info[radius], seed := random.real32 (MAX.CYLINDER.RADIUS - MIN.CYLINDER.RADIUS, seed)
-            info[radius] := info[radius] + MIN.CYLINDER.RADIUS
-            info[colour] := #FFFFFF
+            FORK boid (id, cli, info[velocity], bar, err!, to.thing!)
           --}}}
       FORK agent (svr, location, info, err!)
   :
@@ -995,6 +994,8 @@ PROC main (SHARED CHAN BYTE err!)
   --{{{  main program
   [NUM.LOCATIONS + 1]CHAN RASTER gs:
   CHAN RASTER disp.in, disp.out:
+  SHARED BOID.REQUEST! rcli:
+  BOID.REQUEST? rsvr:
 
   INITIAL MOBILE []SHARED LOC.CT! clis IS MOBILE [NUM.LOCATIONS]SHARED LOC.CT!:
   INITIAL MOBILE []LOC.CT? svrs IS MOBILE [NUM.LOCATIONS]LOC.CT?:
@@ -1055,16 +1056,21 @@ PROC main (SHARED CHAN BYTE err!)
             INT cell:
             SEQ
               cell, seed := random (NUM.LOCATIONS, seed)
-              spawn.actor ((-1) - i, AT.CYLINDER, seed, clis[cell], bar)
+              spawn.actor (seed, clis[cell], bar)
           --}}}
           --{{{  spawn boids
-          INITIAL INT id IS 0:
-          SEQ i = 0 FOR INITIAL.BOIDS
-            INT cell:
-            SEQ
-              cell, seed := random (NUM.LOCATIONS, seed)
-              spawn.actor (id, AT.BOID, seed, clis[cell], bar)
-              id := id + 1
-          --}}}
+          rcli, rsvr := MOBILE BOID.REQUEST
+          FORKING
+            PAR
+              guts (rsvr?, err!)
+              SEQ
+              INITIAL INT id IS 0:
+              SEQ i = 0 FOR INITIAL.BOIDS
+                INT cell:
+                SEQ
+                  cell, seed := random (NUM.LOCATIONS, seed)
+                  spawn.boid (id, AT.BOID, seed, clis[cell], bar, rcli!)
+                  id := id + 1
+            --}}}
   --}}}
 :
