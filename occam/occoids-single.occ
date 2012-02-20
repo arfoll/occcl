@@ -349,17 +349,6 @@ PROC main (SHARED CHAN BYTE err!)
 
     SHARED VIEWER.CT! viewer.cli:
 
-    --{{{  PROC report
-    PROC report (CHAN BYTE out!)
-      SEQ
-        out.string ("Location(", 0, out!)
-        out.int (pos.x, 0, out!)
-        out ! ','
-        out.int (pos.y, 0, out!)
-        out.string ("): ", 0, out!)
-    :
-    --}}}
-
     --{{{  PROC remove.agent
     PROC remove.agent (VAL INT i)
       SEQ
@@ -636,28 +625,6 @@ PROC main (SHARED CHAN BYTE err!)
   :
   --}}}
 
-  --{{{  PROC store
---  PROC store(MOBILE AGENT.CL? cli)
---    [100]AGENT.INFO infos:
---    [100]VECTOR velocities:
---    INITIAL INT current IS 0:
---    WHILE TRUE
---      SEQ
---        cli[current] ? velocities[current]; infos[current]
---        curent := current + 1
---        IF
---          current = 100
---            SEQ
---              PAR
---                C.occoids(infos, velocities)
---                current := 0
---              PAR i=0 FOR 100
---                cli[i] ! velocities[i]; infos[i]
---          TRUE
---            SKIP 
---  :
-  --}}}
-
   --{{{  PROC boid
   --* An actor implementing the Boids flocking algorithm.
   PROC boid (AGENT.CT! cli, VAL VECTOR init.velocity, MOBILE BARRIER bar, SHARED CHAN BYTE err!, SHARED BOID.REQUEST! to.thing)
@@ -668,7 +635,7 @@ PROC main (SHARED CHAN BYTE err!)
     :
 
     --{{{  PROC filter.infos
-    PROC filter.infos (VAL []AGENT.INFO in, VAL VECTOR velocity, MOBILE []AGENT.INFO boids, obstacles)
+    PROC filter.infos (VAL []AGENT.INFO in, VAL VECTOR velocity, []AGENT.INFO boids, INT amount.boids)
       VAL REAL32 my.angle IS ATAN2 (velocity[x], velocity[y]):
 
       --{{{  FUNCTION angle.diff
@@ -716,39 +683,18 @@ PROC main (SHARED CHAN BYTE err!)
       :
       --}}}
 
-      INITIAL INT n.boids IS 0:
-      INITIAL INT n.obstacles IS 0:
       SEQ
+        -- reset our boid count
+        amount.boids := 0
         --{{{  count the things we can see
         SEQ i = 0 FOR SIZE in
           IF
             can.see (in[i])
               CASE in[i][type]
                 AT.BOID
-                  n.boids := n.boids + 1
-                AT.CYLINDER
-                  n.obstacles := n.obstacles + 1
-                ELSE
-                  SKIP
-            TRUE
-              SKIP
-        --}}}
-        resize.array (boids, n.boids)
-        resize.array (obstacles, n.obstacles)
-        --{{{  move things to the right array
-        n.boids, n.obstacles := 0, 0
-        SEQ i = 0 FOR SIZE in
-          IF
-            can.see (in[i])
-              CASE in[i][type]
-                AT.BOID
                   SEQ
-                    boids[n.boids] := in[i]
-                    n.boids := n.boids + 1
-                AT.CYLINDER
-                  SEQ
-                    obstacles[n.obstacles] := in[i]
-                    n.obstacles := n.obstacles + 1
+                    boids[amount.boids] := in[i]
+                    amount.boids := amount.boids + 1
                 ELSE
                   SKIP
             TRUE
@@ -759,12 +705,11 @@ PROC main (SHARED CHAN BYTE err!)
 
     INITIAL VECTOR velocity IS init.velocity:
     INITIAL MOBILE []AGENT.INFO raw.infos IS MOBILE [1]AGENT.INFO:
-    INITIAL MOBILE []AGENT.INFO boid.infos IS MOBILE [1]AGENT.INFO:
     [INITIAL.BOIDS]AGENT.INFO boid.infos.guts:
-    INITIAL MOBILE []AGENT.INFO obstacle.infos IS MOBILE [1]AGENT.INFO:
     BOID.RESPONSE? r.svr:
     BOID.RESPONSE! r.cli:
     INT my.id:
+    INT amount.boids:
     SEQ
       --{{{ register our boids
       r.svr, r.cli := MOBILE BOID.RESPONSE
@@ -789,21 +734,12 @@ PROC main (SHARED CHAN BYTE err!)
           --}}}
 
           -- filter the infos
-          filter.infos (raw.infos, velocity, boid.infos, obstacle.infos)
+          filter.infos (raw.infos, velocity, boid.infos.guts, amount.boids)
           -- send infos and velocity off to processing
           CLAIM to.thing!
             SEQ
-              -- TODO: use static array everywhere
-              -- convert mobile to static array
-              SEQ i=0 FOR SIZE boid.infos
-                boid.infos.guts[i] := boid.infos[i]
               -- send the new array to guts
-              to.thing[in] ! do.work; my.id; velocity; boid.infos.guts; (SIZE boid.infos)
---              IF
---                (SIZE boid.infos) = 0
---                  SKIP
---                TRUE
---                  C.printfint(SIZE boid.infos)
+              to.thing[in] ! do.work; my.id; velocity; boid.infos.guts; amount.boids
           -- recover velocities from guts
           SEQ
             ALT
@@ -1063,16 +999,6 @@ PROC main (SHARED CHAN BYTE err!)
           --{{{  send barrier to locations
           SEQ i = 0 FOR NUM.LOCATIONS
             cbar[i] ! bar
-          --}}}
-
-          --FORK cycle.limiter (bar, err!)
-
-          --{{{  spawn cylinders
---          SEQ i = 0 FOR INITIAL.CYLINDERS
---            INT cell:
---            SEQ
---              cell, seed := random (NUM.LOCATIONS, seed)
---              spawn.actor (seed, clis[cell], bar)
           --}}}
           --{{{  spawn boids
           rcli, rsvr := MOBILE BOID.REQUEST

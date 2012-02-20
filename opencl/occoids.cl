@@ -18,11 +18,10 @@ __kernel void occoids (__global agentinfo (*data)[DIM1*DIM2], __global vector *v
   const int idx = get_global_id(0);
   const int idy = get_global_id(1);
   // combined to give a single id so we can troll through our *data array
-  int id = idx + (idy * DIM1);
+  const int id = idx + (idy * DIM1);
+
   int i;
   vector accel;
-  accel.x = 0.0;
-  accel.y = 0.0;
 
   // TODO: small rule to do the can.see and make stuff = -1 when it's just there but not visible etc...
 
@@ -41,8 +40,8 @@ __kernel void occoids (__global agentinfo (*data)[DIM1*DIM2], __global vector *v
   }
   com.x = com.x / CENTREOFMASSFRACT;
   com.y = com.y / CENTREOFMASSFRACT;
-  accel.x = com.x + accel.x;
-  accel.y = com.y + accel.y;
+  accel.x = com.x;
+  accel.y = com.y;
 
   //** repulsion rule
   vector push;

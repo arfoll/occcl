@@ -209,12 +209,12 @@ int occoids (agentinfo *ai, vector *velocity, cl_int *size, cl_int *aisize)
 
   // Allocate memory for the kernel to work with
   cl_mem mem1, mem2, mem3;
-  mem1 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(agentinfo)*((*size)*(*size)), ai, &error);
-  mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(vector)*(*size), velocity, &error);
-  mem3 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_int)*(*size), aisize, &error);
+  mem1 = clCreateBuffer(*context, CL_MEM_USE_HOST_PTR, sizeof(agentinfo)*((*size)*(*size)), ai, &error);
+  mem2 = clCreateBuffer(*context, CL_MEM_USE_HOST_PTR, sizeof(vector)*(*size), velocity, &error);
+  mem3 = clCreateBuffer(*context, CL_MEM_USE_HOST_PTR, sizeof(cl_int)*(*size), aisize, &error);
 
   // write the arguments to memory
-//  error = clEnqueueWriteBuffer(*cq, mem3, CL_TRUE, 0, sizeof(cl_int), size, 0, NULL, NULL);
+  // error = clEnqueueWriteBuffer(*cq, mem3, CL_TRUE, 0, sizeof(cl_int), size, 0, NULL, NULL);
 
   // get a handle and map parameters for the kernel
   error = clSetKernelArg(k_occoids, 0, sizeof(mem1), &mem1);
