@@ -325,8 +325,8 @@ PROC main (SHARED CHAN BYTE err!)
   PROC updater (SHARED VIEWER.CT! cli, MOBILE BARRIER bar)
     WHILE TRUE
       SEQ
-        SYNC bar -- Phase 1
-        SYNC bar -- Phase 2
+        --SYNC bar -- Phase 1
+        --SYNC bar -- Phase 2
         CLAIM cli
           SEQ
             cli[req] ! update
@@ -483,7 +483,7 @@ PROC main (SHARED CHAN BYTE err!)
                     VAL INT dy IS INT TRUNC (PSR * infos[i][velocity][y]):
                     VAL INT dx IS INT TRUNC (PSR * infos[i][velocity][x]):
                     SEQ
-                      -- fill.circle (x, y, PIXEL.SCALE / 50, infos[i][colour], r)
+                      fill.circle (x, y, PIXEL.SCALE / 50, infos[i][colour], r)
                       fill.rectangle (x - 2, y - 2, 4, 4, infos[i][colour], r)
                       INITIAL INT xx IS x:
                       INITIAL INT yy IS y:
@@ -656,11 +656,10 @@ PROC main (SHARED CHAN BYTE err!)
 
   --{{{  PROC boid
   --* An actor implementing the Boids flocking algorithm.
-  PROC boid (VAL INT id, AGENT.CT! cli, VAL VECTOR init.velocity, MOBILE BARRIER bar, SHARED CHAN BYTE err!, SHARED BOID.REQUEST! to.thing)
+  PROC boid (AGENT.CT! cli, VAL VECTOR init.velocity, MOBILE BARRIER bar, SHARED CHAN BYTE err!, SHARED BOID.REQUEST! to.thing)
     PROC report (CHAN BYTE out!)
       SEQ
         out.string ("Boid(", 0, out!)
-        out.int (id, 0, out!)
         out.string ("): ", 0, out!)
     :
 
@@ -778,11 +777,7 @@ PROC main (SHARED CHAN BYTE err!)
 
       WHILE TRUE
         SEQ
---          CLAIM err!
---            out.string ("stuck at sync bar*n", 0, err!)
---          SYNC bar -- Phase 1
---          CLAIM err!
---            out.string ("not stcuk at bar*n", 0, err!)
+          --SYNC bar -- Phase 1
 
           --{{{  get raw info
           cli[req] ! look; raw.infos
@@ -793,25 +788,25 @@ PROC main (SHARED CHAN BYTE err!)
           filter.infos (raw.infos, velocity, boid.infos, obstacle.infos)
           -- send infos and velocity off to processing
           CLAIM to.thing!
---            INITIAL INT x IS 0:
             SEQ
               -- TODO: use static array everywhere
               -- convert mobile to static array
               SEQ i=0 FOR SIZE boid.infos
-                PAR
-                  boid.infos.guts[i] := boid.infos[i]
---                  x:=x+1
---              SEQ x FOR INITIAL.BOIDS:
---                boid.infos.guts[x] := 
-                
+                boid.infos.guts[i] := boid.infos[i]
+              -- send the new array to guts
               to.thing[in] ! do.work; my.id; velocity; boid.infos.guts; (SIZE boid.infos)
+--              IF
+--                (SIZE boid.infos) = 0
+--                  SKIP
+--                TRUE
+--                  C.printfint(SIZE boid.infos)
           -- recover velocities from guts
           SEQ
             ALT
               r.svr[data] ? velocity
                 cli[req] ! move; velocity
 
---          SYNC bar -- Phase 2
+          --SYNC bar -- Phase 2
   :
   --}}}
 
@@ -836,9 +831,8 @@ PROC main (SHARED CHAN BYTE err!)
       CLAIM err!
         out.string ("boids are ready!*n", 0, err!)
 
-      -- we do know the x size of the array but it seems silly to force it here
+      -- max size array
       [INITIAL.BOIDS][INITIAL.BOIDS]AGENT.INFO boids.infos:
-      --MOBILE []AGENT.INFO boidthing:
       [INITIAL.BOIDS]VECTOR velocities:
       WHILE TRUE
         [INITIAL.BOIDS]INT size:
@@ -853,7 +847,7 @@ PROC main (SHARED CHAN BYTE err!)
           -- do big computation thing
           C.occoids(boids.infos, velocities, size)
 
-          SEQ i = 0 FOR INITIAL.BOIDS
+          PAR i = 0 FOR INITIAL.BOIDS
             clients[i][data] ! velocities[i]
   :
 
@@ -894,7 +888,7 @@ PROC main (SHARED CHAN BYTE err!)
             info[velocity] := info[velocity] - [MAX.INIT.VELOCITY, MAX.INIT.VELOCITY] (VECTOR)
             info[radius] := 0.0
             info[colour] := hsv.to.rgb ((REAL32 ROUND id) / (REAL32 ROUND INITIAL.BOIDS), 0.6, 1.0)
-            FORK boid (id, cli, info[velocity], bar, err!, to.thing!)
+            FORK boid (cli, info[velocity], bar, err!, to.thing!)
           --}}}
       FORK agent (svr, location, info, err!)
   :
@@ -984,8 +978,9 @@ PROC main (SHARED CHAN BYTE err!)
               SKIP
           --}}}
 
-          SYNC bar -- Phase 1
-          SYNC bar -- Phase 2
+--          C.printfint(-1)
+--          SYNC bar -- Phase 1
+--          SYNC bar -- Phase 2
 
           last.top := top
   :
@@ -1065,28 +1060,25 @@ PROC main (SHARED CHAN BYTE err!)
             cbar[i] ! bar
           --}}}
 
-          FORK cycle.limiter (bar, err!)
+          --FORK cycle.limiter (bar, err!)
 
           --{{{  spawn cylinders
-          SEQ i = 0 FOR INITIAL.CYLINDERS
-            INT cell:
-            SEQ
-              cell, seed := random (NUM.LOCATIONS, seed)
-              spawn.actor (seed, clis[cell], bar)
+--          SEQ i = 0 FOR INITIAL.CYLINDERS
+--            INT cell:
+--            SEQ
+--              cell, seed := random (NUM.LOCATIONS, seed)
+--              spawn.actor (seed, clis[cell], bar)
           --}}}
           --{{{  spawn boids
           rcli, rsvr := MOBILE BOID.REQUEST
           FORKING
             PAR
               guts (rsvr?, err!)
-              SEQ
-              INITIAL INT id IS 0:
               SEQ i = 0 FOR INITIAL.BOIDS
                 INT cell:
                 SEQ
                   cell, seed := random (NUM.LOCATIONS, seed)
-                  spawn.boid (id, AT.BOID, seed, clis[cell], bar, rcli!)
-                  id := id + 1
+                  spawn.boid (i, AT.BOID, seed, clis[cell], bar, rcli!)
             --}}}
   --}}}
 :

@@ -21,7 +21,7 @@ static cl_kernel k_occoids;
  */
 void _occoids (int *w)
 {
-  agentinfo *ai = w[0];
+  agentinfo *data = (agentinfo*) w[0];
   cl_int arrsize = w[1];
   cl_int arrsized = w[2]; 
   vector *velocity = w[3];
@@ -29,8 +29,20 @@ void _occoids (int *w)
   cl_int *sizes = w[5];
   cl_int sizess = w[6];
 #if CLOCCOIDS
-  occoids (ai, velocity, &arrsize, sizes);
-  printf("opencl kernel run : %dx%dx%dx%d\n", arrsize, arrsized, arrsizev, sizess);
+  occoids (data, velocity, &arrsize, sizes);
+  #if 0
+  {
+    int id = 0;
+    agentinfo *ai = &data[id][2];
+    fprintf (stderr, "localid = %d, type = %d, pos.x = %f, pos.y = %f, " \
+             "vel.x = %f, vel.y = %f, radius = %f, colour = %d, x = %f, y = %f, datasize = %d\n",
+             ai->localid, ai->type, ai->position.x, ai->position.y,
+             ai->velocity.x, ai->velocity.y, ai->radius, ai->colour,
+             velocity->x, velocity->y, sizes[id]);
+//    exit(1);
+  }
+  #endif
+  //printf("opencl kernel run : %dx%dx%d\n", arrsize, arrsized, sizess);
 #else
   //occoids_c (ai, velocity, arrsize);
   //printf("C res = %f, %f\n", ve2.x, ve2.y);
@@ -191,11 +203,10 @@ int occoids (agentinfo *ai, vector *velocity, cl_int *size, cl_int *aisize)
 #endif
 
   // Allocate memory for the kernel to work with
-  cl_mem mem1, mem2, mem3, mem4;
+  cl_mem mem1, mem2, mem3;
   mem1 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(agentinfo)*((*size)*(*size)), ai, &error);
   mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(vector)*(*size), velocity, &error);
-  mem3 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_int), &size, &error);
-  mem4 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_int)*(*size), aisize, &error);
+  mem3 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_int)*(*size), aisize, &error);
 
   // write the arguments to memory
 //  error = clEnqueueWriteBuffer(*cq, mem3, CL_TRUE, 0, sizeof(cl_int), size, 0, NULL, NULL);
@@ -204,12 +215,19 @@ int occoids (agentinfo *ai, vector *velocity, cl_int *size, cl_int *aisize)
   error = clSetKernelArg(k_occoids, 0, sizeof(mem1), &mem1);
   error = clSetKernelArg(k_occoids, 1, sizeof(mem2), &mem2);
   error = clSetKernelArg(k_occoids, 2, sizeof(mem3), &mem3);
-  error = clSetKernelArg(k_occoids, 3, sizeof(mem4), &mem4);
 
   // Perform the operation, there is only work item in this case
   size_t worksize = *size;
   error = clEnqueueNDRangeKernel(*cq, k_occoids, 1, NULL, &worksize, 0, 0, 0, 0);
   error = clEnqueueReadBuffer(*cq, mem2, CL_TRUE, 0, sizeof(vector)*(*size), velocity, 0, NULL, NULL);
+
+#if DEBUG
+  int i;
+  for (i=0; i < (*size); i++) {
+    printf("%f,%f -", velocity[i].x, velocity[i].y);
+  }
+  printf("\n");
+#endif
 
   // cleanup
   // TODO: clFlush is NOT optimal
@@ -217,7 +235,6 @@ int occoids (agentinfo *ai, vector *velocity, cl_int *size, cl_int *aisize)
   clReleaseMemObject(mem1);
   clReleaseMemObject(mem2);
   clReleaseMemObject(mem3);
-  clReleaseMemObject(mem4);
 
   if (error) {
     fprintf (stderr, "ERROR! : %s\n", errorMessageCL(error));
@@ -260,7 +277,7 @@ int init_occoids ()
   const char *srcptr[]={src};
 
   // build CL program
-  error = buildcl (srcptr, &srcsize, &prog, "", NUM_GPUS);
+  error = buildcl (srcptr, &srcsize, &prog, "-cl-fast-relaxed-math -cl-mad-enable", NUM_GPUS);
   // create kernel
   k_occoids = clCreateKernel(prog, "occoids", &error);
   // get the shared CQ

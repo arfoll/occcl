@@ -12,7 +12,7 @@ float magnitute2 (vector *ve)
   return (ve->x * ve->x) + (ve->y * ve->y);
 }
 
-__kernel void occoids (__global agentinfo (*data)[1000], __global vector *velocity, __global int *size, __global int *aisizes)
+__kernel void occoids (__global agentinfo (*data)[1000], __global vector *velocity, __global int *aisizes)
 {
   const int id = get_global_id(0);
   int i;
