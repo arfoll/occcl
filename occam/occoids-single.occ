@@ -22,7 +22,11 @@ VAL INT PIXEL.SCALE IS 768 / HEIGHT.LOCATIONS:
 VAL REAL32 MAX.INIT.VELOCITY IS 0.1:
 VAL REAL32 MIN.CYLINDER.RADIUS IS 0.1:
 VAL REAL32 MAX.CYLINDER.RADIUS IS 0.3:
-VAL INT INITIAL.BOIDS IS 1000:
+--* OCCCL options
+VAL INT DIMENSION.1 IS 500: -- DONT EDIT, change the BOID.SCALE instead
+VAL INT BOID.SCALE IS 2: -- MAXIMUM is 512 for an cuda 1.x card (1024 for cuda 2.x)
+VAL INT INITIAL.BOIDS IS DIMENSION.1*BOID.SCALE:
+--* endof OCCL options
 VAL INT INITIAL.CYLINDERS IS (NUM.LOCATIONS * 2) / 5:
 VAL REAL32 MEAN.VELOCITY.FRACTION IS 8.0:
 VAL REAL32 CENTRE.OF.MASS.FRACTION IS 45.0:
@@ -114,7 +118,7 @@ CHAN TYPE BOID.REQUEST
 
 --{{{  opencl call
 #PRAGMA EXTERNAL "PROC C.occoids ([][]AGENT.INFO in, []VECTOR velocity, []INT size) = 0"
-#PRAGMA EXTERNAL "PROC C.initoccoids () = 0"
+#PRAGMA EXTERNAL "PROC C.initoccoids (VAL INT x, y) = 0"
 --}}}
 
 --{{{  PROC update.info
@@ -1021,7 +1025,8 @@ PROC main (SHARED CHAN BYTE err!)
 
     --{{{  initialise openCL and CL kernels
     C.initialisecl()
-    C.initoccoids()
+    -- compile our occoids kernel with the correct buildops
+    C.initoccoids(DIMENSION.1, BOID.SCALE)
     --}}}
 
     CHAN RASTER.EVENT events:

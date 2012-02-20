@@ -21,7 +21,6 @@
 #define CLVISKERNELDEFS "mandelbrot_vis.cl"
 #define NUM_GPUS 1
 #define MULTI_GPUS 0
-#define MAX_BUILD_LINE_LENGTH 1024
 #define NUM_JOBS 4250
 #define JOBS_PER_FRAME 5
 #define NUM_ITERATIONS 850

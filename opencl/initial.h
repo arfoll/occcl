@@ -14,6 +14,8 @@
 #define NUM_DEVICES 8 
 // Number of bytes in a MB - used by printDevInfo
 #define BYTES_IN_MB 1048576
+// Biggest build line possible for opencl - not a real limit!
+#define MAX_BUILD_LINE_LENGTH 1024
 
 cl_int initialisecl();
 cl_int destroycl();

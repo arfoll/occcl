@@ -15,6 +15,8 @@ static cl_device_id *device;
 static cl_program prog;
 static cl_command_queue *cq;
 static cl_kernel k_occoids;
+static cl_int dim1 = 500;
+static cl_int dim2 = 2;
 
 /**
  * Maps *w into something we can use in C
@@ -22,15 +24,15 @@ static cl_kernel k_occoids;
 void _occoids (int *w)
 {
   agentinfo *data = (agentinfo*) w[0];
-  cl_int arrsize = w[1];
-  cl_int arrsized = w[2]; 
-  vector *velocity = w[3];
-  cl_int arrsizev = w[4];
-  cl_int *sizes = w[5];
-  cl_int sizess = w[6];
+  cl_int arrsize = (cl_int) w[1];
+  //cl_int arrsized = w[2]; 
+  vector *velocity = (vector*) w[3];
+  //cl_int arrsizev = w[4];
+  cl_int *sizes = (cl_int*) w[5];
+  //cl_int sizess = w[6];
 #if CLOCCOIDS
   occoids (data, velocity, &arrsize, sizes);
-  #if 0
+  #if DEBUG
   {
     int id = 0;
     agentinfo *ai = &data[id][2];
@@ -39,11 +41,11 @@ void _occoids (int *w)
              ai->localid, ai->type, ai->position.x, ai->position.y,
              ai->velocity.x, ai->velocity.y, ai->radius, ai->colour,
              velocity->x, velocity->y, sizes[id]);
-//    exit(1);
   }
-  #endif
   //printf("opencl kernel run : %dx%dx%d\n", arrsize, arrsized, sizess);
+  #endif
 #else
+  // disabled because broken
   //occoids_c (ai, velocity, arrsize);
   //printf("C res = %f, %f\n", ve2.x, ve2.y);
 #endif
@@ -51,6 +53,9 @@ void _occoids (int *w)
 
 void _initoccoids (int *w)
 {
+  dim1 = (cl_int) w[0];
+  dim2 = (cl_int) w[1];
+  fprintf(stderr, "init occoids with %d, %d\n", dim1, dim2);
   init_occoids ();
 }
 
@@ -217,8 +222,8 @@ int occoids (agentinfo *ai, vector *velocity, cl_int *size, cl_int *aisize)
   error = clSetKernelArg(k_occoids, 2, sizeof(mem3), &mem3);
 
   // Perform the operation, there is only work item in this case
-  size_t worksize = *size;
-  error = clEnqueueNDRangeKernel(*cq, k_occoids, 1, NULL, &worksize, 0, 0, 0, 0);
+  size_t worksize[3] = {dim1, dim2, 0};
+  error = clEnqueueNDRangeKernel(*cq, k_occoids, 2, NULL, &worksize[0], 0, 0, 0, 0);
   error = clEnqueueReadBuffer(*cq, mem2, CL_TRUE, 0, sizeof(vector)*(*size), velocity, 0, NULL, NULL);
 
 #if DEBUG
@@ -277,7 +282,13 @@ int init_occoids ()
   const char *srcptr[]={src};
 
   // build CL program
-  error = buildcl (srcptr, &srcsize, &prog, "-cl-fast-relaxed-math -cl-mad-enable", NUM_GPUS);
+  char options[MAX_BUILD_LINE_LENGTH];
+  // relaxed maths and mad should enable a little speed up with vector operations
+  char *compile_opt = "-cl-fast-relaxed-math -cl-mad-enable";
+  // pass DIM1 to our kernel
+  snprintf(options, MAX_BUILD_LINE_LENGTH,
+           "-D DIM1=%d -D DIM2=%d %s", dim1, dim2, compile_opt);
+  error = buildcl (srcptr, &srcsize, &prog, options, NUM_GPUS);
   // create kernel
   k_occoids = clCreateKernel(prog, "occoids", &error);
   // get the shared CQ

@@ -12,9 +12,13 @@ float magnitute2 (vector *ve)
   return (ve->x * ve->x) + (ve->y * ve->y);
 }
 
-__kernel void occoids (__global agentinfo (*data)[1000], __global vector *velocity, __global int *aisizes)
+__kernel void occoids (__global agentinfo (*data)[DIM1*DIM2], __global vector *velocity, __global int *aisizes)
 {
-  const int id = get_global_id(0);
+  // our 2D ids are mapped to x&y
+  const int idx = get_global_id(0);
+  const int idy = get_global_id(1);
+  // combined to give a single id so we can troll through our *data array
+  int id = idx + (idy * DIM1);
   int i;
   vector accel;
   accel.x = 0.0;
