@@ -12,7 +12,7 @@ float magnitute2 (vector *ve)
   return (ve->x * ve->x) + (ve->y * ve->y);
 }
 
-__kernel void occoids (__global agentinfo *data, __global vector *velocity, __global int *size)
+__kernel void occoids (__global agentinfo (*data)[1000], __global vector *velocity, __global int *size, __global int *aisizes)
 {
   const int id = get_global_id(0);
   int i;
@@ -26,9 +26,9 @@ __kernel void occoids (__global agentinfo *data, __global vector *velocity, __gl
   vector com;
   com.x = 0.0;
   com.y = 0.0;
-  for (i=0; i<(*size); i++) {
-    com.x = com.x + data[i].position.x;
-    com.y = com.y + data[i].position.y;
+  for (i=0; i < aisizes[id]; i++) {
+    com.x = com.x + data[id][i].position.x;
+    com.y = com.y + data[id][i].position.y;
   }
   // don't do this if there where no agents seen
   if (i > 0) {
@@ -44,9 +44,9 @@ __kernel void occoids (__global agentinfo *data, __global vector *velocity, __gl
   vector push;
   push.x = 0.0;
   push.y = 0.0;
-  for (i=0; i<(*size); i++) {
+  for (i=0; i < aisizes[id]; i++) {
     // get around address space problems in opencl
-    vector pos = data[i].position;
+    vector pos = data[id][i].position;
     if (magnitute2(&pos) < (REPULSIONDIST * REPULSIONDIST)) {
         push.x = push.x - pos.x;
         push.y = push.y - pos.y;
@@ -61,17 +61,17 @@ __kernel void occoids (__global agentinfo *data, __global vector *velocity, __gl
   vector pvel;
   pvel.x = 0.0;
   pvel.y = 0.0;
-  for (i=0; i<(*size); i++) {
-    pvel.x = pvel.x + data[i].velocity.x;
-    pvel.y = pvel.y + data[i].velocity.y;
+  for (i=0; i < aisizes[id]; i++) {
+    pvel.x = pvel.x + data[id][i].velocity.x;
+    pvel.y = pvel.y + data[id][i].velocity.y;
   }
   // don't do this if there where no agents seen
   if (i > 0) {
     pvel.x = pvel.x / i;
     pvel.y = pvel.y / i;
   }
-  pvel.x = pvel.x - velocity->x;
-  pvel.y = pvel.y - velocity->y;
+  pvel.x = pvel.x - velocity[id].x;
+  pvel.y = pvel.y - velocity[id].y;
   pvel.x = pvel.x / MEANVELFRACT;
   pvel.y = pvel.y / MEANVELFRACT;
   accel.x = pvel.x + accel.x;
@@ -80,30 +80,25 @@ __kernel void occoids (__global agentinfo *data, __global vector *velocity, __gl
   //TODO: add obstacle rule
 
   //** accelerate
-  velocity->x = velocity->x + (accel.x / SMOOTHACCEL);
-  velocity->y = velocity->y + (accel.y / SMOOTHACCEL);
+  velocity[id].x = velocity[id].x + (accel.x / SMOOTHACCEL);
+  velocity[id].y = velocity[id].y + (accel.y / SMOOTHACCEL);
 
 #if 0
   // abs(float x) does not seem to exist in opencl
-  if (abs(velocity->x) < 0.00000) {
-    velocity->x = 0.0;
+  if (abs(velocity[id].x) < 0.00000) {
+    velocity[id].x = 0.0;
   }
-  if (abs(velocity->y) < 0.00000) {
-    velocity->y = 0.0;
+  if (abs(velocity[id].y) < 0.00000) {
+    velocity[id].y = 0.0;
   }
 #endif
 
   // get around address space problems in opencl
-  vector vel = *velocity;
+  vector vel = velocity[id];
   float mag = magnitute2 (&vel);
   if (mag > SPEEDLIMIT2) {
     float div = mag/SPEEDLIMIT2;
-    velocity->x = velocity->x / div;
-    velocity->y = velocity->y / div;
+    velocity[id].x = velocity[id].x / div;
+    velocity[id].y = velocity[id].y / div;
   }
-
-#if 0
-  velocity->x = accel.x;
-  velocity->y = accel.y;
-#endif
 }

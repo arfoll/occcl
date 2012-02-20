@@ -90,14 +90,15 @@ DATA TYPE AGENT.INFO
 
 CHAN TYPE BOID.RESPONSE
   MOBILE RECORD
-    CHAN [4]INT data?:
+    CHAN VECTOR data?:
     CHAN BOOL ready?:
 :
 
 PROTOCOL BOID.REQUEST.IN
   CASE
     register; BOID.RESPONSE!
-    do.work; INT; [4]INT
+    -- id, velocity, data, size of data
+    do.work; INT; VECTOR; [INITIAL.BOIDS]AGENT.INFO; INT 
 :
 
 PROTOCOL BOID.REQUEST.OUT
@@ -112,10 +113,7 @@ CHAN TYPE BOID.REQUEST
 :
 
 --{{{  opencl call
--- pack the data as INT[3], REAL32[7]
--- local.id, type, colour
--- position.x, position.y, velocity.x, velocity.y, radius, accel.x, accel.y
-#PRAGMA EXTERNAL "PROC C.occoids (VAL []AGENT.INFO in, VAL VECTOR velocity) = 0"
+#PRAGMA EXTERNAL "PROC C.occoids ([][]AGENT.INFO in, []VECTOR velocity, []INT size) = 0"
 #PRAGMA EXTERNAL "PROC C.initoccoids () = 0"
 --}}}
 
@@ -759,6 +757,7 @@ PROC main (SHARED CHAN BYTE err!)
     INITIAL VECTOR velocity IS init.velocity:
     INITIAL MOBILE []AGENT.INFO raw.infos IS MOBILE [1]AGENT.INFO:
     INITIAL MOBILE []AGENT.INFO boid.infos IS MOBILE [1]AGENT.INFO:
+    [INITIAL.BOIDS]AGENT.INFO boid.infos.guts:
     INITIAL MOBILE []AGENT.INFO obstacle.infos IS MOBILE [1]AGENT.INFO:
     BOID.RESPONSE? r.svr:
     BOID.RESPONSE! r.cli:
@@ -790,11 +789,27 @@ PROC main (SHARED CHAN BYTE err!)
           cli[resp] ? CASE seen; raw.infos
           --}}}
 
+          -- filter the infos
           filter.infos (raw.infos, velocity, boid.infos, obstacle.infos)
-
---          C.occoids(boid.infos, velocity)
-
-          cli[req] ! move; velocity
+          -- send infos and velocity off to processing
+          CLAIM to.thing!
+--            INITIAL INT x IS 0:
+            SEQ
+              -- TODO: use static array everywhere
+              -- convert mobile to static array
+              SEQ i=0 FOR SIZE boid.infos
+                PAR
+                  boid.infos.guts[i] := boid.infos[i]
+--                  x:=x+1
+--              SEQ x FOR INITIAL.BOIDS:
+--                boid.infos.guts[x] := 
+                
+              to.thing[in] ! do.work; my.id; velocity; boid.infos.guts; (SIZE boid.infos)
+          -- recover velocities from guts
+          SEQ
+            ALT
+              r.svr[data] ? velocity
+                cli[req] ! move; velocity
 
 --          SYNC bar -- Phase 2
   :
@@ -821,24 +836,25 @@ PROC main (SHARED CHAN BYTE err!)
       CLAIM err!
         out.string ("boids are ready!*n", 0, err!)
 
+      -- we do know the x size of the array but it seems silly to force it here
+      [INITIAL.BOIDS][INITIAL.BOIDS]AGENT.INFO boids.infos:
+      --MOBILE []AGENT.INFO boidthing:
+      [INITIAL.BOIDS]VECTOR velocities:
       WHILE TRUE
-        [INITIAL.BOIDS][4]INT data.in:
+        [INITIAL.BOIDS]INT size:
         SEQ
           SEQ i = 0 FOR INITIAL.BOIDS
             INT id:
             SEQ
               svr[in] ? CASE
-                do.work; id; data.in[id]
+                do.work; id; velocities[id]; boids.infos[id]; size[id]
                   SKIP
 
           -- do big computation thing
-          CLAIM err!
-            SEQ
-              err ! '.'
-              err ! #FF
+          C.occoids(boids.infos, velocities, size)
 
           SEQ i = 0 FOR INITIAL.BOIDS
-            clients[i][data] ! data.in[i]
+            clients[i][data] ! velocities[i]
   :
 
   --{{{  PROC spawn.actor

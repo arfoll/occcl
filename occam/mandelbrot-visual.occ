@@ -37,13 +37,13 @@ VAL INT SIZE.MULTI IS 1:
 VAL INT IMAGE.WIDTH IS 320*SIZE.MULTI:
 VAL INT IMAGE.HEIGHT IS 240*SIZE.MULTI:
 -- Reduce this value on smaller GPUs
-VAL INT FRAMES.PER.WORKER IS 3:
+VAL INT FRAMES.PER.WORKER IS 1:
 -- Value should reflect how many parralel opencl kernels you want to run
-VAL INT N.WORKERS IS 2:
+VAL INT N.WORKERS IS 1:
 -- N.ITERS should be < 850 to avoid picture loss
 VAL INT N.ITERS IS 850:
 -- MAX.FRAMES is actually FRAMES.PER.WORKER * MAX.FRAMES
-VAL INT MAX.FRAMES IS 32:
+VAL INT MAX.FRAMES IS 850/FRAMES.PER.WORKER:
 VAL INT FRAME.SPEED IS 0:
 
 --{{{ external opencl functions
@@ -115,17 +115,18 @@ PROC farmer (CT.WORK.IN? link.in, CHAN INT tick!, tock?, kill!)
     kill ! 0
 :
 
-PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN RASTER scr.in?, scr.out!)
+PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN RASTER scr.in?, scr.out!, CHAN BYTE scr!)
   [MAX.FRAMES][FRAMES.PER.WORKER][IMAGE.HEIGHT][IMAGE.WIDTH]INT framebuffer:
   [MAX.FRAMES]INT fcount:
   TIMER tim:
-  INT t:
+  INT t, start, stop:
   VAL INT frame.speed IS FRAME.SPEED:
   SEQ
     SEQ i = 0 FOR SIZE fcount
       fcount[i] := IMAGE.HEIGHT
 
     tim ? t
+    start := t
     t := t PLUS frame.speed
 
     INITIAL INT lframe IS 0:
@@ -164,6 +165,10 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN RASTER
         INT any:
         kill ? any
           running := FALSE
+    tim ? stop
+    out.string ("time = ", 0, scr!)
+    out.int ((stop MINUS start) / 1000, 0, scr!)
+    out.string (" ms*n", 0, scr!)
 :
 
 
@@ -185,7 +190,7 @@ PROC mandelbrot (CHAN BYTE kyb?, scr!, err!)
     CHAN RASTER c, d:
     PAR
       farmer (mwsvr.in, tick!, tock?, kill!)
-      harvester (mwsvr.out, tick?, tock!, kill?, c?, d!)
+      harvester (mwsvr.out, tick?, tock!, kill?, c?, d!, scr!)
       PAR i = 0 FOR N.WORKERS
         worker (mwcli.in, mwcli.out)
       raster.display.simple ("Mandelbrot", IMAGE.WIDTH, IMAGE.HEIGHT, 5, d?, c!)

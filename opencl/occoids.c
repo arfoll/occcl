@@ -21,32 +21,18 @@ static cl_kernel k_occoids;
  */
 void _occoids (int *w)
 {
-#if DEBUG
-  int i;
-  int arrsize = w[1];
-  agentinfo *ai = w[0];
-  vector *velocity = w[2];
-  for (i=0; i<arrsize; i++) {
-    //vector *pos = ai->position;
-    //vector *vel = ai->velocity;
-    fprintf (stderr, "localid = %d, type = %d, pos.x = %f, pos.y = %f, " \
-             "vel.x = %f, vel.y = %f, radius = %f, colour = %d, x = %f, y = %f\n",
-             ai->localid, ai->type, ai->position.x, ai->position.y,
-             ai->velocity.x, ai->velocity.y, ai->radius, ai->colour,
-             velocity->x, velocity->y);
-    // go to the next ai struct
-    ai++;
-  }
-#else
   agentinfo *ai = w[0];
   cl_int arrsize = w[1];
-  vector *velocity = w[2];
-#endif
+  cl_int arrsized = w[2]; 
+  vector *velocity = w[3];
+  cl_int arrsizev = w[4];
+  cl_int *sizes = w[5];
+  cl_int sizess = w[6];
 #if CLOCCOIDS
-  occoids (ai, velocity, &arrsize);
-  //printf("opencl res = %f, %f\n", velocity->x, velocity->y);
+  occoids (ai, velocity, &arrsize, sizes);
+  printf("opencl kernel run : %dx%dx%dx%d\n", arrsize, arrsized, arrsizev, sizess);
 #else
-  occoids_c (ai, velocity, arrsize);
+  //occoids_c (ai, velocity, arrsize);
   //printf("C res = %f, %f\n", ve2.x, ve2.y);
 #endif
 }
@@ -194,7 +180,7 @@ int occoids_c (agentinfo *ai, vector *velocity, cl_int size)
   return 0;
 }
 
-int occoids (agentinfo *ai, vector *velocity, cl_int *size)
+int occoids (agentinfo *ai, vector *velocity, cl_int *size, cl_int *aisize)
 {
   cl_int error;
 
@@ -205,10 +191,11 @@ int occoids (agentinfo *ai, vector *velocity, cl_int *size)
 #endif
 
   // Allocate memory for the kernel to work with
-  cl_mem mem1, mem2, mem3;
-  mem1 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(agentinfo)*(*size), ai, &error);
-  mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(vector), velocity, &error);
+  cl_mem mem1, mem2, mem3, mem4;
+  mem1 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(agentinfo)*((*size)*(*size)), ai, &error);
+  mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(vector)*(*size), velocity, &error);
   mem3 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_int), &size, &error);
+  mem4 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_int)*(*size), aisize, &error);
 
   // write the arguments to memory
 //  error = clEnqueueWriteBuffer(*cq, mem3, CL_TRUE, 0, sizeof(cl_int), size, 0, NULL, NULL);
@@ -217,11 +204,12 @@ int occoids (agentinfo *ai, vector *velocity, cl_int *size)
   error = clSetKernelArg(k_occoids, 0, sizeof(mem1), &mem1);
   error = clSetKernelArg(k_occoids, 1, sizeof(mem2), &mem2);
   error = clSetKernelArg(k_occoids, 2, sizeof(mem3), &mem3);
+  error = clSetKernelArg(k_occoids, 3, sizeof(mem4), &mem4);
 
   // Perform the operation, there is only work item in this case
-  size_t worksize = 1;
+  size_t worksize = *size;
   error = clEnqueueNDRangeKernel(*cq, k_occoids, 1, NULL, &worksize, 0, 0, 0, 0);
-  error = clEnqueueReadBuffer(*cq, mem2, CL_TRUE, 0, sizeof(vector), velocity, 0, NULL, NULL);
+  error = clEnqueueReadBuffer(*cq, mem2, CL_TRUE, 0, sizeof(vector)*(*size), velocity, 0, NULL, NULL);
 
   // cleanup
   // TODO: clFlush is NOT optimal
@@ -229,6 +217,7 @@ int occoids (agentinfo *ai, vector *velocity, cl_int *size)
   clReleaseMemObject(mem1);
   clReleaseMemObject(mem2);
   clReleaseMemObject(mem3);
+  clReleaseMemObject(mem4);
 
   if (error) {
     fprintf (stderr, "ERROR! : %s\n", errorMessageCL(error));

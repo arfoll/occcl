@@ -50,7 +50,7 @@ typedef struct {
 
 void _occoids (int *w);
 void _initoccoids (int *w);
-int occoids (agentinfo *ai, vector *velocity, cl_int *size);
+int occoids (agentinfo *ai, vector *velocity, cl_int *size, cl_int *aisizes);
 int occoids_c (agentinfo *ai, vector *velocity, cl_int size);
 int init_occoids ();
 cl_int print_occoids_kernel_info ();
