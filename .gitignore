@@ -2,6 +2,7 @@
 *~
 *.o
 *.tce
+callgrind.out.*
 
 nohup.out
 
