@@ -7,12 +7,25 @@
 
 #include "occoids_cl.h"
 
-float magnitute2 (vector *ve)
+float magnitude2 (vector *ve)
 {
   return (ve->x * ve->x) + (ve->y * ve->y);
 }
 
-__kernel void occoids (__global agentinfo (*data)[DIM1*DIM2], __global vector *velocity, __global int *aisizes)
+float anglediff(float a, float b)
+{
+  float r = a - b;
+  if (r < (-PI)) {
+    r = r + (2.0 * PI);
+  }
+  else {
+    r = r - (2.0 * PI);
+  }
+//  return fabs(r);
+  return r;
+}
+
+__kernel void occoids (__global agentinfo (*data)[DIM1*DIM2], __global vector *velocity, __global int *rawsizes)
 {
   // our 2D ids are mapped to x&y
   const int idx = get_global_id(0);
@@ -25,12 +38,49 @@ __kernel void occoids (__global agentinfo (*data)[DIM1*DIM2], __global vector *v
   vector temp;
   vector accel;
 
-  // TODO: small rule to do the can.see and make stuff = -1 when it's just there but not visible etc...
+//////// filter.infos
+  // dont really need these vars
+  vector pos, vel;
+  int aisize = 0; 
+  vel = velocity[id];
+  temp.x = atan2(vel.x, vel.y);
+
+  // check this calculation is not worthless
+  for (i=0; i < rawsizes[id]; i++) {
+#if 0
+     // works if filter.infos is run by PROC boid
+     if (data[id][i].type == ATBOID) {
+       data[id][aisize] = data[id][i];
+       aisize++;
+     }
+#else
+     pos = data[id][i].position;
+     if (magnitude2(&pos) > (VISIONRADIUS2)) {
+       //nothing
+     }
+     else if (data[id][i].type == ATCYLINDER) {
+       //nothing
+       //TODO: do cylinder stuff
+     }
+     else if ((magnitude2(&vel)) < EPSILON) {
+       data[id][aisize] = data[id][i];
+       aisize++;
+     }
+     else if ((anglediff(atan2(pos.x, pos.y), temp.x)) > VISIONMAXANGULARDIFF) {
+       //nothing
+     } 
+     else {
+       data[id][aisize] = data[id][i];
+       aisize++;
+     }
+#endif
+  }
+/////// endof filter.infos
 
   //** centre of mass rule
   temp.x = 0.0;
   temp.y = 0.0;
-  for (i=0; i < aisizes[id]; i++) {
+  for (i=0; i < aisize; i++) {
     temp.x = temp.x + data[id][i].position.x;
     temp.y = temp.y + data[id][i].position.y;
   }
@@ -47,10 +97,10 @@ __kernel void occoids (__global agentinfo (*data)[DIM1*DIM2], __global vector *v
   //** repulsion rule
   temp.x = 0.0;
   temp.y = 0.0;
-  for (i=0; i < aisizes[id]; i++) {
+  for (i=0; i < aisize; i++) {
     // get around address space problems in opencl
     vector pos = data[id][i].position;
-    if (magnitute2(&pos) < (REPULSIONDIST * REPULSIONDIST)) {
+    if (magnitude2(&pos) < (REPULSIONDIST * REPULSIONDIST)) {
         temp.x = temp.x - pos.x;
         temp.y = temp.y - pos.y;
     }
@@ -63,7 +113,7 @@ __kernel void occoids (__global agentinfo (*data)[DIM1*DIM2], __global vector *v
   //** mean velocity rule
   temp.x = 0.0;
   temp.y = 0.0;
-  for (i=0; i < aisizes[id]; i++) {
+  for (i=0; i < aisize; i++) {
     temp.x = temp.x + data[id][i].velocity.x;
     temp.y = temp.y + data[id][i].velocity.y;
   }
@@ -98,7 +148,7 @@ __kernel void occoids (__global agentinfo (*data)[DIM1*DIM2], __global vector *v
   // get around address space problems in opencl
   temp = velocity[id];
   // use temp.x as a float instead of making another var
-  temp.x = magnitute2 (&temp);
+  temp.x = magnitude2 (&temp);
   if (temp.x > SPEEDLIMIT2) {
     temp.x = temp.x/SPEEDLIMIT2;
     velocity[id].x = velocity[id].x / temp.x;

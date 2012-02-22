@@ -21,6 +21,11 @@
 #define SPEEDLIMIT2 (SPEEDLIMIT * SPEEDLIMIT) //0.0009
 #define VISIONRADIUS 0.25
 #define VISIONANGLE 200.0
+#define VISIONRADIUS2 VISIONRADIUS*VISIONRADIUS
+#define EPSILON 1.0E-8
+// from nvidia cuda math lib. Is there an inbuilt for opencl?
+#define PI 3.14159274101257f
+#define VISIONMAXANGULARDIFF ((VISIONANGLE / 2.0) * PI) / 180.0
 
 typedef struct {
   float x;

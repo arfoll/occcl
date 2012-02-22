@@ -24,6 +24,7 @@ VAL REAL32 MIN.CYLINDER.RADIUS IS 0.1:
 VAL REAL32 MAX.CYLINDER.RADIUS IS 0.3:
 --* OCCCL options
 VAL INT DIMENSION.1 IS 500: -- DONT EDIT, change the BOID.SCALE instead
+-- it seems an 8600GT can only handle a scaling of 1
 VAL INT BOID.SCALE IS 2: -- MAXIMUM is 512 for an cuda 1.x card (1024 for cuda 2.x)
 VAL INT INITIAL.BOIDS IS DIMENSION.1*BOID.SCALE:
 --* endof OCCL options
@@ -102,7 +103,7 @@ PROTOCOL BOID.REQUEST.IN
   CASE
     register; BOID.RESPONSE!
     -- id, velocity, data, size of data
-    do.work; INT; VECTOR; [INITIAL.BOIDS]AGENT.INFO; INT 
+    do.work; INT; VECTOR; [INITIAL.BOIDS]AGENT.INFO; INT
 :
 
 PROTOCOL BOID.REQUEST.OUT
@@ -725,6 +726,7 @@ PROC main (SHARED CHAN BYTE err!)
       --}}}
 
       WHILE TRUE
+        INT size:
         SEQ
           --SYNC bar -- Phase 1
 
@@ -733,13 +735,20 @@ PROC main (SHARED CHAN BYTE err!)
           cli[resp] ? CASE seen; raw.infos
           --}}}
 
-          -- filter the infos
-          filter.infos (raw.infos, velocity, boid.infos.guts, amount.boids)
+          --filter.infos(raw.infos, velocity, boid.infos.guts, amount.boids)
+          -- convert mobile raw.infos to std array
+          IF
+            (SIZE raw.infos) > INITIAL.BOIDS
+              size := INITIAL.BOIDS
+            TRUE
+              size := SIZE raw.infos
+          SEQ i = 0 FOR size
+            boid.infos.guts[i] := raw.infos[i]
           -- send infos and velocity off to processing
           CLAIM to.thing!
             SEQ
-              -- send the new array to guts
-              to.thing[in] ! do.work; my.id; velocity; boid.infos.guts; amount.boids
+              -- send the new array to guts with 0 which is pointless. need to replace
+              to.thing[in] ! do.work; my.id; velocity; boid.infos.guts; size
           -- recover velocities from guts
           SEQ
             ALT
