@@ -83,7 +83,8 @@ PROC worker (SHARED CT.WORK.IN! link.in, SHARED CT.WORK.OUT! link.out)
            
         IF
           (jobid = (-1))
-            running := FALSE
+            SEQ
+              running := FALSE
           TRUE
             SEQ
               C.mandelbrotvis(output, jobid)
@@ -164,11 +165,14 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN RASTER
           tock ! hframe
         INT any:
         kill ? any
-          running := FALSE
+          SEQ
+            running := FALSE
     tim ? stop
     out.string ("time = ", 0, scr!)
     out.int ((stop MINUS start) / 1000, 0, scr!)
     out.string (" ms*n", 0, scr!)
+    -- clean shutdown
+    raster.shutdown (scr.in?, scr.out!)
 :
 
 
