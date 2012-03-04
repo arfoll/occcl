@@ -19,7 +19,6 @@ static cl_program progvis[MAX_GPUS];
 static cl_kernel k_mandelbrot;
 static cl_kernel k_mandelbrotvis[MAX_GPUS];
 static cl_command_queue *cq;
-static int currentdevice = 0;
 static int numdevices = 1;
 
 static int visheight = 240;
@@ -180,24 +179,23 @@ int mandelbrotvis (cl_int *data, cl_fract *job)
 
 #if MULTI_GPUS 
   // move to new context/cq
-  nextDevice();
-  currentdevice = getCurrentDevice();
-  cq = get_command_queue();
-  context = get_cl_context();
+  int currentdevice = nextDevice();
+  cl_command_queue *cqm = get_command_queue();
+  cl_context *cm = get_cl_context();
 #endif
 
   // Allocate memory for the kernel to work with
   cl_mem mem1, mem2;
-  mem1 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_int)*(visheight*viswidth*framesperworker), 0, &error);
+  mem1 = clCreateBuffer(*cm, CL_MEM_WRITE_ONLY, sizeof(cl_int)*(visheight*viswidth*framesperworker), 0, &error);
 
   if (mandelbrot_cl_float) {
     cl_float jobfloat[framesperworker*JOBS_PER_FRAME];
     for (i=0; i<framesperworker*JOBS_PER_FRAME; i++)
       jobfloat[i] = (cl_float) job[i];
 
-    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*framesperworker*JOBS_PER_FRAME, jobfloat, &error);
+    mem2 = clCreateBuffer(*cm, CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*framesperworker*JOBS_PER_FRAME, jobfloat, &error);
   } else {
-    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_fract)*framesperworker*JOBS_PER_FRAME, job, &error);
+    mem2 = clCreateBuffer(*cm, CL_MEM_COPY_HOST_PTR, sizeof(cl_fract)*framesperworker*JOBS_PER_FRAME, job, &error);
   }
   
   // get a handle and map parameters for the kernel
@@ -205,9 +203,9 @@ int mandelbrotvis (cl_int *data, cl_fract *job)
   error = clSetKernelArg(k_mandelbrotvis[currentdevice], 1, sizeof(mem2), &mem2);
 
   size_t worksize[3] = {visheight, viswidth, framesperworker};
-  error = clEnqueueNDRangeKernel(*cq, k_mandelbrotvis[currentdevice], 3, NULL, &worksize[0], 0, 0, 0, 0);
+  error = clEnqueueNDRangeKernel(*cqm, k_mandelbrotvis[currentdevice], 3, NULL, &worksize[0], 0, 0, 0, 0);
   // Read the result back into data
-  error = clEnqueueReadBuffer(*cq, mem1, CL_TRUE, 0, sizeof(cl_int)*(visheight*viswidth*framesperworker), data, 0, 0, 0);
+  error = clEnqueueReadBuffer(*cqm, mem1, CL_TRUE, 0, sizeof(cl_int)*(visheight*viswidth*framesperworker), data, 0, 0, 0);
 
   // cleanup - don't perform a flush as the queue is now shared between all executions. The
   // blocking clEnqueueReadBuffer should be enough

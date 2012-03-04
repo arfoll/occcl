@@ -77,7 +77,7 @@ int main (int argc, char *argv[])
   argp_parse (&argp, argc, argv, 0, 0, &arguments);
 
   // CL initialisation
-  error = initialisecl();
+  error = initialisecl(arguments.verbose);
   if(error != CL_SUCCESS) {
     fprintf (stdout, "initialisecl() returned %s\n", errorMessageCL(error));
     return 1;

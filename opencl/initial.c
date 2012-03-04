@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define VERBOSE 0
 #define DEBUG 1
 
 static cl_platform_id platform;
@@ -26,7 +27,7 @@ static cl_context context[NUM_DEVICES];
  */
 void _initialisecl(int *ws)
 {
-  initialisecl();
+  initialisecl(VERBOSE);
 }
 
 /**
@@ -41,8 +42,9 @@ void _destroycl(int *ws)
  * This initialisation is tested on AMDCCLE stream SDK (opencl 1.1)
  * on an AMD/ATI HD4850 graphics card on 32bit arch linux using linux 
  * kernel 3.0.3 with catalyst driver 
+ * Also works on 32bit arch linux using kernel 3.2.x on cuda 4.x
  */
-cl_int initialisecl() 
+cl_int initialisecl(int verbose) 
 {
 #if ERROR_CHECK
   if (context == NULL) {
@@ -55,26 +57,31 @@ cl_int initialisecl()
     //Fetch the Platform and Device IDs; we only want one.
     error = clGetPlatformIDs(1, &platform, &platforms);
     if (error != CL_SUCCESS) {
-      fprintf(stderr, "Error getting platform ids: %s", errorMessageCL(error));
+      fprintf(stderr, "Error getting platform ids: %s\n", errorMessageCL(error));
     }
 
     // prefer GPUs
     error = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, NUM_DEVICES, device, &numdevices);
     if (error != CL_SUCCESS) {
-      fprintf(stderr, "Couldn't get a CL_DEVICE_TYPE_GPU: %s", errorMessageCL(error));
+      fprintf(stderr, "Couldn't get a CL_DEVICE_TYPE_GPU: %s\n", errorMessageCL(error));
+    }
+
+    if (verbose) {
+      fprintf (stdout, "Found %d devices\n", numdevices);
     }
 
     // we don't have any GPU devices
-    if (numdevices > 0) {
+    if (numdevices < 0) {
+      fprintf(stderr, "Grabbing a CL_DEVICE_TYPE_ALL\n");
       error = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, NUM_DEVICES, device, &numdevices);
       if (error != CL_SUCCESS) {
-        fprintf(stderr, "Error getting device ids: %s", errorMessageCL(error));
+        fprintf(stderr, "Error getting device ids: %s\n", errorMessageCL(error));
       }
     }
 
     cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
     if (error != CL_SUCCESS) {
-      fprintf(stderr, "Error getting platform properties: %s", errorMessageCL(error));
+      fprintf(stderr, "Error getting platform properties: %s\n", errorMessageCL(error));
     }
 
     // do this for every openCL device
@@ -82,7 +89,7 @@ cl_int initialisecl()
       //AMD stream SDK requires the platform property
       context[i] = clCreateContext(properties, 1, &devices[i], NULL, NULL, &error);
       if (error != CL_SUCCESS) {
-        fprintf(stderr, "Error creating context: %s", errorMessageCL(error));
+        fprintf(stderr, "Error creating context: %s\n", errorMessageCL(error));
       }
 
       //Create command queue
@@ -195,9 +202,9 @@ int extSupported(char *ext)
 }
 
 /**
- * Use the next device
+ * Use the next device and return the current device
  */
-void nextDevice()
+int nextDevice()
 {
   if (numdevices > 1 && currentdevice < numdevices) {
     device = &devices[(currentdevice++)];
@@ -206,6 +213,7 @@ void nextDevice()
     currentdevice = 0;
     device = &devices[currentdevice];
   }
+  return currentdevice;
 }
 
 /**
