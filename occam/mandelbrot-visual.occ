@@ -47,7 +47,7 @@ VAL INT MAX.FRAMES IS 10:
 VAL INT FRAME.SPEED IS 0:
 
 --{{{ external opencl functions
-#PRAGMA EXTERNAL "PROC C.initmandelbrotvis (VAL INT width, height, frames) = 0"
+#PRAGMA EXTERNAL "PROC C.initmandelbrotvis (VAL INT width, height, frames, iterations) = 0"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
 #PRAGMA EXTERNAL "PROC C.mandelbrotvis ([][][]INT data, VAL INT jobid) = 0"
 #PRAGMA EXTERNAL "PROC C.destroycl () = 0"
@@ -187,7 +187,7 @@ PROC mandelbrot (CHAN BYTE kyb?, scr!, err!)
 
     --{{{ initialise openCL and mandelbrot CL kernel
     C.initialisecl()
-    C.initmandelbrotvis (IMAGE.WIDTH, IMAGE.HEIGHT, FRAMES.PER.WORKER)
+    C.initmandelbrotvis (IMAGE.WIDTH, IMAGE.HEIGHT, FRAMES.PER.WORKER, N.ITERS)
     --}}}
     
     CHAN INT tick, tock, kill:
