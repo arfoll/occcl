@@ -21,9 +21,9 @@
 #define CLVISKERNELDEFS "mandelbrot_vis.cl"
 #define NUM_GPUS 1
 #define MULTI_GPUS 1
-#define NUM_JOBS 4250
 #define JOBS_PER_FRAME 5
-#define NUM_ITERATIONS 850
+#define NUM_ITERATIONS 1500
+#define NUM_JOBS (NUM_ITERATIONS * JOBS_PER_FRAME)
 
 #define DEBUG 0
 #define CLMANDEL 1
