@@ -206,13 +206,11 @@ int extSupported(char *ext)
  */
 int nextDevice()
 {
-  if (numdevices > 1 && currentdevice < numdevices) {
-    device = &devices[(currentdevice++)];
-  }
-  else {
-    currentdevice = 0;
-    device = &devices[currentdevice];
-  }
+  currentdevice++;
+  currentdevice %= numdevices;
+
+  device = &devices[currentdevice];
+
   return currentdevice;
 }
 
@@ -242,7 +240,7 @@ cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog, const ch
 
   for (i=0; i<num_progs; i++) {
     //Submit the source code of the rot13 kernel to OpenCL
-    prog[i] = clCreateProgramWithSource(context[currentdevice], 1, srcptr, srcsize, &error);
+    prog[i] = clCreateProgramWithSource(context[i], 1, srcptr, srcsize, &error);
     //and compile it (after this we could extract the compiled version)
     error = clBuildProgram(prog[i], 0, NULL, options, NULL, NULL);
   }
