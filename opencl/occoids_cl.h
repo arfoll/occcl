@@ -10,27 +10,24 @@
 
 #define ATBOID 1
 #define ATCYLINDER 2
-#define CENTREOFMASSFRACT 45.0
-#define REPULSIONDIST 0.06
-#define REPULSIONFRACT 4.0
-#define MEANVELFRACT 8.0
-#define OBSTACLEFRACT 8.0
-#define SOFTTHRESHOLD 0.05
-#define SMOOTHACCEL 5.0
-#define SPEEDLIMIT 0.03
+#define CENTREOFMASSFRACT 45.0f
+#define REPULSIONDIST 0.06f
+#define REPULSIONFRACT 4.0f
+#define MEANVELFRACT 8.0f
+#define OBSTACLEFRACT 8.0f
+#define SOFTTHRESHOLD 0.05f
+#define SMOOTHACCEL 5.0f
+#define SPEEDLIMIT 0.03f
 #define SPEEDLIMIT2 (SPEEDLIMIT * SPEEDLIMIT) //0.0009
-#define VISIONRADIUS 0.25
-#define VISIONANGLE 200.0
+#define VISIONRADIUS 0.25f
+#define VISIONANGLE 200.0f
 #define VISIONRADIUS2 VISIONRADIUS*VISIONRADIUS
-#define EPSILON 1.0E-8
+#define EPSILON 1.0E-8f
 // from nvidia cuda math lib. Is there an inbuilt for opencl?
 #define PI 3.14159274101257f
-#define VISIONMAXANGULARDIFF ((VISIONANGLE / 2.0) * PI) / 180.0
+#define VISIONMAXANGULARDIFF ((VISIONANGLE / 2.0f) * PI) / 180.0f
 
-typedef struct {
-  float x;
-  float y;
-} vector;
+typedef float2 vector;
 
 typedef struct {
   int localid;
