@@ -26,7 +26,7 @@ static int viswidth = 320;
 static int framesperworker = 1;
 static int iterations = 1500;
 // our max iterations is 3000
-cl_fract jobs[3000*5];
+cl_fract jobs[3000*3];
 
 cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
 
@@ -81,6 +81,7 @@ void _mandelbrot (int *w)
 void _mandelbrotvis (int *w)
 { 
   cl_int *data = (cl_int*) w[0];
+  // pass the correct part of the jobs array
   cl_fract *jobsarr = &jobs[w[4]*JOBS_PER_FRAME];
   mandelbrotvis (data, (cl_fract*) jobsarr);
 }
@@ -96,7 +97,7 @@ void _initmandelbrotvis (int *w)
   visheight = (int) w[1];
   framesperworker = (int) w[2];
   iterations = (int) w[3];
-//  printf("%d, %d, %d\n\n\n\n", viswidth, visheight, framesperworker);
+  //  printf("%d, %d, %d\n\n\n\n", viswidth, visheight, framesperworker);
   init_mandelbrotvis();
 }
 
@@ -297,10 +298,11 @@ void initialiseJobs()
 
   for (i = 0; i < iterations; i++) {
     index = i*JOBS_PER_FRAME;
-    jobs[index] = i;
-    jobs[index+1] = zoom;
-    jobs[index+2] = ydrift;
-    jobs[index+3] = xdrift;
+    jobs[index] = zoom;
+    jobs[index+1] = ydrift;
+    jobs[index+2] = xdrift;
+
+    fprintf (stderr, "%f, %f, %f\n", jobs[index], jobs[index+1], jobs[index+2]);
 
     zoom = zoom + (zoom / 32.0);
     diffx = xtarget - xdrift;
