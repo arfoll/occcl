@@ -33,7 +33,7 @@
 -- max worksize is 512x512x32 and cuda 2.x cards can do 1024x1024x64
 --}}}
 -- max multiplier on cuda 1.x cards is 1, but a size of 512x can be used
-VAL INT SIZE.MULTI IS 4:
+VAL INT SIZE.MULTI IS 1:
 VAL INT IMAGE.WIDTH IS 320*SIZE.MULTI:
 VAL INT IMAGE.HEIGHT IS 240*SIZE.MULTI:
 -- Reduce this value on smaller GPUs
@@ -41,7 +41,7 @@ VAL INT FRAMES.PER.WORKER IS 1:
 -- Value should reflect how many parralel opencl kernels you want to run
 VAL INT N.WORKERS IS 2:
 -- N.ITERS should be < 850 to avoid picture loss
-VAL INT N.ITERS IS 1500:
+VAL INT N.ITERS IS 1200:
 -- MAX.FRAMES is actually FRAMES.PER.WORKER * MAX.FRAMES
 VAL INT MAX.FRAMES IS 10:
 VAL INT FRAME.SPEED IS 0:
@@ -139,6 +139,8 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN RASTER
         link.out[out] ? frame; id; framebuffer[frame \ MAX.FRAMES]
           SEQ
             calc := frame \ MAX.FRAMES
+--            out.int(frame, 0, scr!)
+--            out.string ("*n", 0, scr!)
             fcount[calc] := fcount[calc] - IMAGE.HEIGHT
             IF
               fcount[lframe \ MAX.FRAMES] = 0

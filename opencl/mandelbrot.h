@@ -22,6 +22,8 @@
 #define NUM_GPUS 1
 #define MULTI_GPUS 1
 #define JOBS_PER_FRAME 3
+// after 1200 we loose too much precision and our target is wrong
+#define MAX_NUM_ITERATIONS 1200
 
 #define DEBUG 0
 #define CLMANDEL 1

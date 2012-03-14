@@ -9,29 +9,28 @@
 
 __kernel void mandelbrot_vis(__global int (*data)[IMAGEHEIGHTVIS][IMAGEWIDTHVIS], __constant floatcl *job)
 {
-  const int idy = get_global_id(0); 
-  const int idx = get_global_id(1);
-  const int idz = get_global_id(2);
-  int idzi = idz*3;
+  int8 id;
+  id.y = get_global_id(0); 
+  id.x = get_global_id(1);
+  id.z = get_global_id(2);
+  id.w = id.z*3;
 
-  floatcl y = (floatcl) idy - (IMAGEHEIGHTVIS/2);
-  y = y/job[idzi] - job[idzi+1];
+  floatcl y = (floatcl) id.y - (IMAGEHEIGHTVIS/2);
+  y = y/job[id.w] - job[id.w+1];
 
-  floatcl real = (((idx - IMAGEHEIGHTVIS) / (job[idzi] * 2.0)) - job[idzi+2]);
-  floatcl imag = y;
-  floatcl iter_real = 0.0; 
-  floatcl iter_imag = 0.0; 
+  double4 var;
+  var.x = (((id.x - IMAGEHEIGHTVIS) / (job[id.w] * 2.0f)) - job[id.w+2]);
+  var.y = y;
+  double2 iter = (double2) (0.0f, 0.0f);
   int count = 0; 
-  while ((((iter_real*iter_real)+(iter_imag*iter_imag)) < 32.0) && (count < 240)) {
-    floatcl iter_r; 
-    floatcl iter_i; 
-    iter_r = ((iter_real*iter_real) - (iter_imag*iter_imag)); 
-    iter_i = ((iter_imag*iter_real) + (iter_real*iter_imag)); 
-    iter_real = (real + iter_r); 
-    iter_imag = (imag + iter_i); 
+  while ((count < 240) && (((iter.x*iter.x)+(iter.y*iter.y)) < 32.0f)) {
+    var.z = ((iter.x*iter.x) - (iter.y*iter.y)); 
+    var.w = ((iter.y*iter.x) + (iter.x*iter.y)); 
+    iter.x = (var.x + var.z); 
+    iter.y = (var.y + var.w); 
     count++; 
   }
-  int val = count & 15;
-  data[idz][idy][idx] = -268435456 >> (val*2);
+  count = count & 15;
+  data[id.z][id.y][id.x] = -268435456 >> (count*2);
 }
 
