@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-O0 -g3 -Wall -lOpenCL -lm -I.
+CFLAGS=-O3 -march=native -Wall -lOpenCL -lm -I.
 DEPS = 
 OBJ = hellocl.o hellocl_test.o initial.o rot13.o sin.o mandelbrot.o printf.o modulo.o occoids.o colour.o
 

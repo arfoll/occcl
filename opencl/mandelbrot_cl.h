@@ -12,8 +12,12 @@
     #ifdef USE_DOUBLE
         #pragma OPENCL EXTENSION cl_khr_fp64 : enable
         typedef double floatcl;
+        typedef double2 floatcl2;
+        typedef double4 floatcl4;
     #elif USE_FLOAT
         typedef float floatcl;
+        typedef float2 floatcl2;
+        typedef float4 floatcl4;
     #else
         #error "use -D USE_DOUBLE or -D USE_FLOAT."
     #endif

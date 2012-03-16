@@ -40,7 +40,7 @@ VAL INT IMAGE.WIDTH IS 320:
 VAL INT IMAGE.HEIGHT IS 240:
 
 VAL INT N.WORKERS IS 32:
-VAL INT N.ITERS IS 850:
+VAL INT N.ITERS IS 1200:
 VAL INT MAX.FRAMES IS 8:
 
 VAL INT FRAME.SPEED IS 0:
@@ -160,17 +160,18 @@ PROC farmer (CT.WORK.IN? link.in, CHAN INT tick!, tock?, kill!)
     kill ! 0
 :
 
-PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN RASTER scr.in?, scr.out!)
+PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE scr!)
   [MAX.FRAMES][IMAGE.HEIGHT][IMAGE.WIDTH]INT framebuffer:
   [MAX.FRAMES]INT fcount:
   TIMER tim:
-  INT t:
+  INT t, start, stop:
   VAL INT frame.speed IS FRAME.SPEED:
   SEQ
     SEQ i = 0 FOR SIZE fcount
       fcount[i] := IMAGE.HEIGHT
 
     tim ? t
+    start := t
     t := t PLUS frame.speed
 
     INITIAL INT lframe IS 0:
@@ -188,18 +189,11 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN RASTER
                 INITIAL INT lbuf IS (lframe \ MAX.FRAMES):
                 SEQ
                   tim ? AFTER t
-                  --C.printfint(frame)
-                  --C.printfint(framebuffer[lbuf][0][0])
-                  --C.printfint(#F0000000)
+                  out.int(frame, 0, scr!)
+                  out.string ("*n", 0, scr!)
 
                   fcount[lbuf] := IMAGE.HEIGHT
                   --{{{  dump framebuffer[lbuf]
-                  RASTER r:
-                  SEQ
-                    scr.in ? r
-                    SEQ j = 0 FOR IMAGE.HEIGHT
-                      r[j] := framebuffer[lbuf][j]
-                    scr.out ! r
                   --}}}
                   lframe := lframe + 1
 
@@ -211,6 +205,11 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN RASTER
         INT any:
         kill ? any
           running := FALSE
+
+    tim ? stop
+    out.string ("time = ", 0, scr!)
+    out.int ((stop MINUS start) / 1000, 0, scr!)
+    out.string (" ms*n", 0, scr!)
 :
 
 
@@ -224,13 +223,11 @@ PROC mandelbrot (CHAN BYTE kyb?, scr!, err!)
     mwsvr.out, mwcli.out := MOBILE CT.WORK.OUT
 
     CHAN INT tick, tock, kill:
-    CHAN RASTER c, d:
     PAR
       farmer (mwsvr.in, tick!, tock?, kill!)
-      harvester (mwsvr.out, tick?, tock!, kill?, c?, d!)
+      harvester (mwsvr.out, tick?, tock!, kill?, scr!)
       PAR i = 0 FOR N.WORKERS
         worker (mwcli.in, mwcli.out)
-      raster.display.simple ("Mandelbrot", IMAGE.WIDTH, IMAGE.HEIGHT, 5, d?, c!)
 
 :
 

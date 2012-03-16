@@ -18,10 +18,10 @@ __kernel void mandelbrot_vis(__global int (*data)[IMAGEHEIGHTVIS][IMAGEWIDTHVIS]
   floatcl y = (floatcl) id.y - (IMAGEHEIGHTVIS/2);
   y = y/job[id.w] - job[id.w+1];
 
-  double4 var;
+  floatcl4 var;
   var.x = (((id.x - IMAGEHEIGHTVIS) / (job[id.w] * 2.0f)) - job[id.w+2]);
   var.y = y;
-  double2 iter = (double2) (0.0f, 0.0f);
+  floatcl2 iter = (floatcl2) (0.0f, 0.0f);
   int count = 0; 
   while ((count < 240) && (((iter.x*iter.x)+(iter.y*iter.y)) < 32.0f)) {
     var.z = ((iter.x*iter.x) - (iter.y*iter.y)); 
