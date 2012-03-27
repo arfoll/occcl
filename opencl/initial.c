@@ -11,19 +11,23 @@
 #include <stdlib.h>
 #include <string.h>
 
-static cl_context context;
+#define VERBOSE 0
+#define DEBUG 1
+
+static cl_platform_id platform;
 static cl_device_id *device;
 static cl_uint numdevices;
 static cl_uint currentdevice = 0;
-static cl_command_queue cq;
-cl_device_id devices[NUM_DEVICES];
+static cl_device_id devices[NUM_DEVICES];
+static cl_command_queue cq[NUM_DEVICES];
+static cl_context context[NUM_DEVICES];
 
 /**
  * Occam-pi call for initialisecl
  */
 void _initialisecl(int *ws)
 {
-  initialisecl();
+  initialisecl(VERBOSE);
 }
 
 /**
@@ -38,43 +42,61 @@ void _destroycl(int *ws)
  * This initialisation is tested on AMDCCLE stream SDK (opencl 1.1)
  * on an AMD/ATI HD4850 graphics card on 32bit arch linux using linux 
  * kernel 3.0.3 with catalyst driver 
+ * Also works on 32bit arch linux using kernel 3.2.x on cuda 4.x
  */
-cl_int initialisecl() 
+cl_int initialisecl(int verbose) 
 {
 #if ERROR_CHECK
   if (context == NULL) {
 #endif
+    int i;
     cl_int error;
-    cl_platform_id platform;
     cl_uint platforms;
     device = &devices[currentdevice];
 
     //Fetch the Platform and Device IDs; we only want one.
     error = clGetPlatformIDs(1, &platform, &platforms);
     if (error != CL_SUCCESS) {
-      fprintf(stderr, "Error getting platform ids: %s", errorMessageCL(error));
+      fprintf(stderr, "Error getting platform ids: %s\n", errorMessageCL(error));
     }
 
-    error = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, NUM_DEVICES, device, &numdevices);
+    // prefer GPUs
+    error = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, NUM_DEVICES, device, &numdevices);
     if (error != CL_SUCCESS) {
-      fprintf(stderr, "Error getting device ids: %s", errorMessageCL(error));
+      fprintf(stderr, "Couldn't get a CL_DEVICE_TYPE_GPU: %s\n", errorMessageCL(error));
+    }
+
+    if (verbose) {
+      fprintf (stdout, "Found %d devices\n", numdevices);
+    }
+
+    // we don't have any GPU devices
+    if (numdevices < 0) {
+      fprintf(stderr, "Grabbing a CL_DEVICE_TYPE_ALL\n");
+      error = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, NUM_DEVICES, device, &numdevices);
+      if (error != CL_SUCCESS) {
+        fprintf(stderr, "Error getting device ids: %s\n", errorMessageCL(error));
+      }
     }
 
     cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
     if (error != CL_SUCCESS) {
-      fprintf(stderr, "Error getting platform properties: %s", errorMessageCL(error));
+      fprintf(stderr, "Error getting platform properties: %s\n", errorMessageCL(error));
     }
 
-    //AMD stream SDK requires the platform property
-    context = clCreateContext(properties, 1, device, NULL, NULL, &error);
-    if (error != CL_SUCCESS) {
-      fprintf(stderr, "Error creating context: %s", errorMessageCL(error));
-    }
+    // do this for every openCL device
+    for (i=0; i<numdevices; i++) { 
+      //AMD stream SDK requires the platform property
+      context[i] = clCreateContext(properties, 1, &devices[i], NULL, NULL, &error);
+      if (error != CL_SUCCESS) {
+        fprintf(stderr, "Error creating context: %s\n", errorMessageCL(error));
+      }
 
-    //Create command queue
-    cq = clCreateCommandQueue(context, *device, 0, &error);
-    if (error) {
-      fprintf (stderr, "ERROR at CQ create! : %s\n", errorMessageCL(error));
+      //Create command queue
+      cq[i] = clCreateCommandQueue(context[i], device[i], 0, &error);
+      if (error) {
+        fprintf (stderr, "ERROR creating command queue: %s\n", errorMessageCL(error));
+      }
     }
 
     return error;
@@ -85,13 +107,13 @@ cl_int initialisecl()
 }
 
 /**
- *
+ * Destroy opencl CQ and other shared objects
  */
 cl_int destroycl()
 {
   cl_int error;
 
-  error = clReleaseCommandQueue(cq);
+  error = clReleaseCommandQueue(cq[currentdevice]);
 
   return error;
 }
@@ -113,7 +135,57 @@ void printDeviceName()
 {
   char deviceName[1024];
   clGetDeviceInfo((*device), CL_DEVICE_NAME, sizeof(deviceName), deviceName, NULL);
-  fprintf (stdout, "OpenCL device : %s\n",deviceName);
+  fprintf (stdout, "DEVICE NAME = %s\n",deviceName);
+}
+
+/**
+ * Print general platform information
+ */
+void printPlatformInfo()
+{
+  char buffer[10240];
+  clGetPlatformInfo(platform, CL_PLATFORM_PROFILE, 10240, buffer, NULL);
+  printf("PROFILE = %s\n", buffer);
+  clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 10240, buffer, NULL);
+  printf("VERSION = %s\n", buffer);
+  clGetPlatformInfo(platform, CL_PLATFORM_NAME, 10240, buffer, NULL);
+  printf("NAME = %s\n", buffer);
+  clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 10240, buffer, NULL);
+  printf("VENDOR = %s\n", buffer);
+  clGetPlatformInfo(platform, CL_PLATFORM_EXTENSIONS, 10240, buffer, NULL);
+  printf("EXTENSIONS = %s\n", buffer);
+}
+
+/**
+ * Print Some device info
+ */
+void printDevInfo()
+{
+  // opencl device info
+  int i;
+  for (i = 0; i < numdevices; i++) {
+    char buffer[10240];
+    cl_uint buf_uint;
+    cl_uint buf_uintarray[128];
+    cl_ulong buf_ulong;
+    printDeviceName();
+    clGetDeviceInfo(devices[i], CL_DEVICE_VENDOR, sizeof(buffer), buffer, NULL);
+    printf("DEVICE_VENDOR = %s\n", buffer);
+    clGetDeviceInfo(devices[i], CL_DEVICE_VERSION, sizeof(buffer), buffer, NULL);
+    printf("DEVICE_VERSION = %s\n", buffer);
+    clGetDeviceInfo(devices[i], CL_DRIVER_VERSION, sizeof(buffer), buffer, NULL);
+    printf("DRIVER_VERSION = %s\n", buffer);
+    clGetDeviceInfo(devices[i], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(buf_uint), &buf_uint, NULL);
+    printf("DEVICE_MAX_COMPUTE_UNITS = %u\n", (unsigned int)buf_uint);
+    clGetDeviceInfo(devices[i], CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(buf_uint), &buf_uint, NULL);
+    printf("DEVICE_MAX_CLOCK_FREQUENCY = %uMhz\n", (unsigned int)buf_uint);
+    clGetDeviceInfo(devices[i], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(buf_ulong), &buf_ulong, NULL);
+    printf("DEVICE_GLOBAL_MEM_SIZE = %lluMB\n", (unsigned long long)buf_ulong / BYTES_IN_MB);
+    clGetDeviceInfo(devices[i], CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(buf_uint), &buf_uint, NULL);
+    printf("CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS = %u\n", (unsigned int)buf_uint);
+    clGetDeviceInfo(devices[i], CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(cl_uint) * buf_uint, &buf_uintarray, NULL);
+    printf("CL_DEVICE_MAX_WORK_ITEM_SIZES = { %u, %u, %u }\n", buf_uintarray[0], buf_uintarray[1], buf_uintarray[2]);
+  }
 }
 
 /**
@@ -130,18 +202,20 @@ int extSupported(char *ext)
 }
 
 /**
- * Use the next device
+ * Use the next device and return the current device
  */
-void nextDevice()
+int nextDevice()
 {
-  if (numdevices > 1 && currentdevice < numdevices)
-    device = &devices[(currentdevice + 1)];
-  else
-    device = &devices[0];
+  currentdevice++;
+  currentdevice %= numdevices;
+
+  device = &devices[currentdevice];
+
+  return currentdevice;
 }
 
 /**
- *
+ * Get the number of CL devices
  */
 int getMaxDevices()
 {
@@ -149,15 +223,27 @@ int getMaxDevices()
 }
 
 /**
+ * Get the current CL device
+ */
+int getCurrentDevice()
+{
+  return currentdevice;
+}
+
+/**
  * builds the CL program from src and returns and return it
  */
-cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog, const char *options)
+cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog, const char *options, cl_int num_progs)
 {
   cl_int error;
-  //Submit the source code of the rot13 kernel to OpenCL
-  *prog = clCreateProgramWithSource(context, 1, srcptr, srcsize, &error);
-  //and compile it (after this we could extract the compiled version)
-  error = clBuildProgram(*prog, 0, NULL, options, NULL, NULL);
+  int i;
+
+  for (i=0; i<num_progs; i++) {
+    //Submit the source code of the rot13 kernel to OpenCL
+    prog[i] = clCreateProgramWithSource(context[i], 1, srcptr, srcsize, &error);
+    //and compile it (after this we could extract the compiled version)
+    error = clBuildProgram(prog[i], 0, NULL, options, NULL, NULL);
+  }
 
 #if ERROR_CHECK 
   if (error != CL_SUCCESS) {
@@ -171,12 +257,42 @@ cl_int buildcl(const char *srcptr[], size_t *srcsize, cl_program *prog, const ch
   return error;
 }
 
+#if 0
+/**
+ * Get cl kernel profiling info so that opencl kernel binary can be dumped
+ */
+cl_int getProfilingInfo()
+{
+  clGetEventProfilingInfo(event, 
+}
+#endif
+
+/**
+ *
+ */
+int getCorrectDevice(char *requiredExt)
+{
+  int devicenum = 1;
+  while (!extSupported(requiredExt) && devicenum < getMaxDevices()) {
+    nextDevice();
+    printDeviceName();
+    printDevExt();
+    devicenum++;
+  }
+
+  if (extSupported(requiredExt)) {
+    return CL_SUCCESS;
+  } else {
+    return 1;
+  }
+}
+
 /**
  * Return the cl_context
  */
 cl_context* get_cl_context()
 {
-  return &context;
+  return &context[currentdevice];
 }
 
 /**
@@ -192,7 +308,12 @@ cl_device_id* get_cl_device()
  */
 cl_command_queue* get_command_queue()
 {
-  return &cq;
+  return &cq[currentdevice];
+}
+
+int getNumDevices()
+{
+  return numdevices;
 }
 
 /**

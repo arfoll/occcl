@@ -1,0 +1,5 @@
+- mandelbrot
+  - move calculations for DP mandelbrot.cl to float and find out which requires double precision. Use DP on just that calculation in order to reduce the amount of instructions using doubles. This should speed up the calculations by allowing us to use all the threads on the GPU.
+  - debug log of events and when they get called/terminated to see if there is ever some overlap
+  - small performance statistics printed when call is made? generic?
+  - frame number sent along with info by occam to allow for a print & stash in C?

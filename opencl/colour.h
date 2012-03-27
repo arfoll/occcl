@@ -5,17 +5,12 @@
  * Copyright 2011 - University of Kent
  */
 
-#ifndef SIN_H
-#define SIN_H
+#ifndef COLOUR_H
+#define COLOUR_H
 
 #include <stdio.h>
 #include <string.h>
 
-#include "initial.h"
-
-#define NUM_GPUS 1
-
-int clsin (cl_float *data);
-int init_sin ();
+void textcolour (int attr);
 
 #endif

@@ -1,6 +1,14 @@
-hellocl
-hello
 *.swp
 *~
 *.o
 *.tce
+callgrind.out.*
+
+nohup.out
+
+opencl/hellocl
+occam/hello
+occam/mandelbrot
+occam/occoids-single
+occam/mandelbrot-bench
+occam/mandelbrot-occam

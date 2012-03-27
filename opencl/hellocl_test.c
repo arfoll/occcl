@@ -13,93 +13,66 @@
 #include "rot13.h"
 #include "mandelbrot.h"
 #include "modulo.h"
+#include "occoids.h"
 
 #define PRINT_SIN 0
 #define PRINT_MANDEL 0
 
-int getCorrectDevice(char *requiredExt) {
-  int devicenum = 1;
-  while (!extSupported(requiredExt) && devicenum < getMaxDevices()) {
-    nextDevice();
-    fprintf (stdout, "========= CHANGED CL DEVICE =========\n");
-    printDeviceName();
-    printDevExt();
-    devicenum++;
-  }
-
-  if (extSupported(requiredExt)) {
-    return CL_SUCCESS;
-  } else {
-    fprintf (stdout, "no devices on this system support %s, which is a required extension\n", requiredExt);
-    return 1;
-  }
-}
-
 int mandelbrotTest(int verbose, int iterations) {
-  cl_int error;
-  int i;
+  cl_int error = CL_SUCCESS;
 
   fprintf (stdout, "========= MANDELBROT =========\n");
-  // mandelbrot initialisation
   error = init_mandelbrot();
   fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
-  // print some device info
   print_mandelbrot_kernel_info();
-  // run mandelbrot CL kernel against C mandelbrot func
-  cl_int width = 100;
-  //make job array with rawdata
-  cl_fract *job = (cl_fract*)malloc(sizeof(cl_fract)*5);
-  cl_fract *job_ori = (cl_fract*)malloc(sizeof(cl_fract)*4);
-  cl_fract rawdata[4] = {-25.000000, 534.086426, -0.271229, 1.159260};
-  for (i=0; i < 4; i++) {
-    job[i] = job_ori[i] = rawdata[i];
-  } 
-  // make char arrays and fill them with blank data
-  cl_char *chdata = (cl_char*)malloc(sizeof(cl_char)*width*2);
-  cl_char *chdata2 = (cl_char*)malloc(sizeof(cl_char)*width*2);
-  for (i=0; i < width*2; i++) {
-    chdata[i] = i;
-    chdata2[i] = i;
-  }
+  cl_fract job[4] = {-25.000000, 534.086426, -0.271229, 1.159260};
+  cl_char *dataptr = (cl_char*)malloc(sizeof(cl_char)*100*2*50);
+  //memset(dataptr, 2, (sizeof(cl_char)*100*2*50));
+  cl_char (*chdata)[200] = (cl_char*) dataptr;
 
-  // run the mandelbrot 50 times changing job[1] values
-  int errors = 0;
-  int x = 0;
-  if (iterations == 8) {
-    i = iterations;
-  } else {
-    i = -25;
-  }
-  for (; i < iterations+1; i++) {
-    job[0] = job_ori[0] = i;
-    // calculate y for cl function
-    job[4] = job[0]/job[1] - job[2];
-    error += mandelbrot(chdata, job, width);
-    mandelbrot_c(chdata2, job_ori, width);
+  mandelbrot(chdata, &job[0]);
 
-    // error checking
-    for (x=0; x < width; x++) {
-      if (chdata[x] != chdata2[x]) {
-        errors++;
-        if (verbose) {
-          fprintf(stdout, "mandelcl(%d) = %d vs %d\n", x, (int) chdata[x], (int) chdata2[x]);
-        }
-      }
+  free (dataptr);
+  return error;
+}
+
+int mandelbrotVisTest() {
+  cl_int error = CL_SUCCESS;
+
+  fprintf (stdout, "========= MANDELBROT VIS =========\n");
+  error = init_mandelbrotvis();
+  fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
+  cl_fract job[4] = {0.5, 534.086426, -0.271229, 1.159260};
+  cl_int *dataptr = (cl_int*)malloc(sizeof(cl_int)*240*320);
+//  cl_int (*intdata)[320] = (cl_int*) dataptr;
+
+  mandelbrotvis(dataptr, &job[0]);
+
+#if 0
+  int x, y;
+  for (y=0; y < 240; y++) {
+    for (x=0; x < 320; x++) {
+      //data[y][x] = 15728640;
+      printf ("%d,", intdata[y][x]);
     }
+    printf ("\n");
   }
+#endif
+  
+  free (dataptr);
+  return error;
+}
 
-  // print any possible errors from CL kernel call
-  fprintf (stdout, "mandelbrot CL errors * %d = %s\n", iterations, errorMessageCL(error));
-  fprintf (stdout, "mandelbrot calculations with %d errors\n", errors);
+int occoidsTest() {
+  cl_int error = CL_SUCCESS;
 
-  // cleanup
-  free (chdata);
-  free (chdata2);
+  fprintf (stdout, "========= OCCOIDS TEST =========\n");
+
   return error;
 }
 
 int moduloTest() {
-  cl_int error;
+  cl_int error = CL_SUCCESS;
 
   fprintf (stdout, "========= MODULO PRECISION TEST =========\n");
   error = init_modulo();
@@ -115,7 +88,7 @@ int moduloTest() {
 }
 
 int sinTest() {
-  cl_int error;
+  cl_int error = CL_SUCCESS;
   int i;
 
   fprintf (stdout, "========= SIN =========\n");
@@ -144,7 +117,7 @@ int sinTest() {
 }
 
 int rot13Test() {
-  cl_int error;
+  cl_int error = CL_SUCCESS;
 
   fprintf (stdout, "========= ROT13 =========\n");
   // rot13 initialisation

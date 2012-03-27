@@ -1,19 +1,60 @@
 #INCLUDE "course.module"
 
+-- for occoids C implemantation test
+
+VAL REAL32 MEAN.VELOCITY.FRACTION IS 8.0:
+VAL REAL32 CENTRE.OF.MASS.FRACTION IS 45.0:
+VAL REAL32 REPULSION.DISTANCE IS 0.06:
+VAL REAL32 REPULSION.FRACTION IS 4.0:
+VAL REAL32 SOFT.THRESHOLD IS 0.05:
+VAL REAL32 OBSTACLE.FRACTION IS 8.0:
+VAL REAL32 SPEED.LIMIT IS 0.03:
+VAL REAL32 SMOOTH.ACCELERATION IS 5.0:
+VAL REAL32 EPSILON IS 1.0E-8:
+
+DATA TYPE VECTOR
+  PACKED RECORD
+    REAL32 x, y:
+:
+
+VECTOR INLINE FUNCTION "+" (VAL VECTOR a, b) IS [a[x] + b[x], a[y] + b[y]]:
+VECTOR INLINE FUNCTION "-" (VAL VECTOR a, b) IS [a[x] - b[x], a[y] - b[y]]:
+VECTOR INLINE FUNCTION "**" (VAL VECTOR a, VAL REAL32 b) IS [a[x] * b, a[y] * b]:
+VECTOR INLINE FUNCTION "/" (VAL VECTOR a, VAL REAL32 b) IS [a[x] / b, a[y] / b]:
+
+--* Compute the square of the magnitude of the vector.
+REAL32 INLINE FUNCTION magnitude2 (VAL VECTOR v) IS (v[x] * v[x]) + (v[y] * v[y]):
+
+DATA TYPE AGENT.INFO
+  PACKED RECORD
+    INT local.id:
+    INT type:
+    VECTOR position, velocity:
+    REAL32 radius:
+    INT colour:
+:
+
+-- external C functions
 #PRAGMA EXTERNAL "PROC C.rot13 (VAL []BYTE plaintext, RESULT []BYTE ciphertext) = 0"
+#PRAGMA EXTERNAL "PROC C.printfreal (VAL []REAL32 val) = 0"
+#PRAGMA EXTERNAL "PROC C.printfreal64 (VAL []REAL64 val) = 0"
+#PRAGMA EXTERNAL "PROC C.printfint (VAL INT val) = 0"
 #PRAGMA EXTERNAL "PROC C.initrot13 () = 0"
 #PRAGMA EXTERNAL "PROC C.mandelbrot (VAL []BYTE data, VAL []REAL64 job, VAL INT width) = 0"
 #PRAGMA EXTERNAL "PROC C.initmandelbrot () = 0"
 #PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
 #PRAGMA EXTERNAL "PROC C.destroycl () = 0"
+#PRAGMA EXTERNAL "PROC C.occoids (VAL []AGENT.INFO in, VAL VECTOR velocity) = 0"
+#PRAGMA EXTERNAL "PROC C.initoccoids () = 0"
 
+-- for occam mandelbrot
 DATA TYPE COMPLEX64
   RECORD
     REAL64 real, imag:
 :
 
 PROC rot13 (VAL []BYTE plaintext, CHAN BYTE out!)
-  [17]BYTE ciphertext: 
+  [17]BYTE ciphertext:
   SEQ
     C.rot13 (plaintext, ciphertext)
     out.string (ciphertext, 0, out!)
@@ -22,8 +63,8 @@ PROC rot13 (VAL []BYTE plaintext, CHAN BYTE out!)
 PROC occrot13 (VAL []BYTE p, CHAN BYTE out!)
   [17]BYTE c:
   SEQ
-    PAR i = 0 FOR 17 
-      IF 
+    PAR i = 0 FOR 17
+      IF
         (p[i] >= 'a') AND (p[i] <= 'z')
           SEQ
             c[i] := p[i] - 'a'
@@ -34,19 +75,8 @@ PROC occrot13 (VAL []BYTE p, CHAN BYTE out!)
             c[i] := ((c[i] + 13) \ 26) + 'a'
         TRUE
           c[i] := ' '
-      
-    out.string (c, 0, out!)
-:
 
-PROC print.streams (VAL INT col.width, []CHAN BYTE in?, CHAN BYTE out!)
-  INITIAL MOBILE []BYTE n IS MOBILE [SIZE in?]BYTE:
-  WHILE TRUE
-    SEQ
-      PAR i = 0 FOR SIZE n
-        in[i] ? n[i]
-      SEQ i = 0 FOR SIZE n
-        out.ch (n[i], col.width, out!)
-      out.string ("*c*n", 0, out!)
+    out.string (c, 0, out!)
 :
 
 PROC mandel (CHAN BYTE out!)
@@ -58,7 +88,7 @@ PROC mandel (CHAN BYTE out!)
       PAR i = 0 FOR width
         data[i] := BYTE i
       PAR i = 0 FOR 4
-        job[i] := REAL64 TRUNC i 
+        job[i] := REAL64 TRUNC i
     C.mandelbrot (data, job, width)
     SEQ i = 0 FOR width*2
       out.byte (data[i], 0, out!)
@@ -104,7 +134,7 @@ PROC mandelocc (CHAN BYTE out!)
       out.string("*n", 0, out!)
     -- init over
     VAL REAL64 y IS (job[0] / job[1]) - job[2]:
-    SEQ i = 0 FOR width 
+    SEQ i = 0 FOR width
       VAL REAL64 x IS ((REAL64 TRUNC (i - (width / 2))) / (job[1] * 2.0)) - job[3]:
       INT val:
       SEQ
@@ -125,35 +155,238 @@ PROC mandelocc (CHAN BYTE out!)
     out.string ("*n", 0, out!)
 :
 
+PROC occam.occoids (VAL []AGENT.INFO in, VECTOR velocity)
+  --{{{  PROC centre.of.mass.rule
+  PROC centre.of.mass.rule (VAL []AGENT.INFO infos, VECTOR accel)
+    INITIAL VECTOR com IS [0.0, 0.0]:
+    SEQ
+      --{{{  find centre of mass of agents we can see
+      IF
+        (SIZE infos) > 0
+          SEQ
+            SEQ i = 0 FOR SIZE infos
+              com := com + infos[i][position]
+            com := com / (REAL32 ROUND (SIZE infos))
+        TRUE
+          SKIP
+      --}}}
+
+      accel := accel + (com / CENTRE.OF.MASS.FRACTION)
+  :
+  --}}}
+
+  --{{{  PROC repulsion.rule
+  PROC repulsion.rule (VAL []AGENT.INFO infos, VECTOR accel)
+    INITIAL VECTOR push IS [0.0, 0.0]:
+    SEQ
+      SEQ i = 0 FOR SIZE infos
+        VAL VECTOR pos IS infos[i][position]:
+        IF
+          magnitude2 (pos) < (REPULSION.DISTANCE * REPULSION.DISTANCE)
+            --{{{  this one's close; move away from it
+            push := push - pos
+            --}}}
+          TRUE
+            SKIP
+
+      accel := accel + (push / REPULSION.FRACTION)
+  :
+  --}}}
+  --{{{  PROC mean.velocity.rule
+  PROC mean.velocity.rule (VAL []AGENT.INFO infos, VAL VECTOR my.velocity, VECTOR accel)
+    INITIAL VECTOR perceived.velocity IS [0.0, 0.0]:
+    SEQ
+      IF
+        (SIZE infos) > 0
+          SEQ
+            SEQ i = 0 FOR SIZE infos
+              perceived.velocity := perceived.velocity + infos[i][velocity]
+            perceived.velocity := perceived.velocity / (REAL32 ROUND (SIZE infos))
+        TRUE
+          SKIP
+      perceived.velocity := perceived.velocity - my.velocity
+
+      accel := accel + (perceived.velocity / MEAN.VELOCITY.FRACTION)
+  :
+  --}}}
+
+  --{{{  PROC obstacle.rule
+  PROC obstacle.rule (VAL []AGENT.INFO infos, VECTOR accel)
+    INITIAL VECTOR push IS [0.0, 0.0]:
+    SEQ
+      SEQ i = 0 FOR SIZE infos
+        --{{{  compute how hard to push away from this object
+        VAL VECTOR pos IS infos[i][position]:
+        VAL REAL32 dist IS SQRT (magnitude2 (pos)) - infos[i][radius]:
+        IF
+          dist < 0.0
+            --{{{  past the soft threshold; push back hard
+            push := push - pos
+            --}}}
+          dist < SOFT.THRESHOLD
+            --{{{  inside the soft threshold; push back a variable amount
+            push := push - (pos * (1.0 (REAL32) - (dist / SOFT.THRESHOLD)))
+            --}}}
+          TRUE
+            --{{{  nowhere near
+            SKIP
+            --}}}
+        --}}}
+
+      accel := accel + (push / OBSTACLE.FRACTION)
+  :
+  --}}}
+  --{{{  PROC obstacle.rule
+  PROC obstacle.rule (VAL []AGENT.INFO infos, VECTOR accel)
+    INITIAL VECTOR push IS [0.0, 0.0]:
+    SEQ
+      SEQ i = 0 FOR SIZE infos
+        --{{{  compute how hard to push away from this object
+        VAL VECTOR pos IS infos[i][position]:
+        VAL REAL32 dist IS SQRT (magnitude2 (pos)) - infos[i][radius]:
+        IF
+          dist < 0.0
+            --{{{  past the soft threshold; push back hard
+            push := push - pos
+            --}}}
+          dist < SOFT.THRESHOLD
+            --{{{  inside the soft threshold; push back a variable amount
+            push := push - (pos * (1.0 (REAL32) - (dist / SOFT.THRESHOLD)))
+            --}}}
+          TRUE
+            --{{{  nowhere near
+            SKIP
+            --}}}
+        --}}}
+
+      accel := accel + push
+  :
+  --}}}
+  --{{{  PROC accelerate
+  PROC accelerate (VECTOR velocity, VAL VECTOR acceleration)
+    --{{{  PROC clamp
+    --* Clamp values that are close to zero to actually be zero.
+    -- This avoids underflow problems.
+    PROC clamp (REAL32 r)
+      IF
+        ABS (r) < EPSILON
+          r := 0.0
+        TRUE
+          SKIP
+    :
+    --}}}
+
+    VAL REAL32 SPEED.LIMIT2 IS SPEED.LIMIT * SPEED.LIMIT:
+    REAL32 mag:
+    [7]REAL32 velc:
+    SEQ
+      velocity := velocity + (acceleration / SMOOTH.ACCELERATION)
+      velc[0] := velocity[x]
+      velc[1] := velocity[y]
+      clamp (velocity[x])
+      clamp (velocity[y])
+
+      --{{{  apply speed limit
+      mag := magnitude2 (velocity)
+      velc[2] := mag
+      velc[3] := SPEED.LIMIT2
+      IF
+        mag > SPEED.LIMIT2
+          REAL32 div:
+          SEQ
+            div := mag / SPEED.LIMIT2
+            velc[6] := div
+            velocity := velocity / div
+        TRUE
+          SKIP
+      --}}}
+      velc[4] := velocity[x]
+      velc[5] := velocity[y]
+      C.printfreal(velc)
+  :
+  --}}}
+  [2]REAL32 velc:
+  INITIAL VECTOR accel IS [0.0, 0.0]:
+  SEQ
+    -- debug stuff
+    SEQ
+      velc[0] := velocity[x]
+      velc[1] := velocity[y]
+      C.printfreal(velc)
+    -- end of debug stuff
+    centre.of.mass.rule (in, accel)
+    repulsion.rule (in, accel)
+    mean.velocity.rule (in, velocity, accel)
+    obstacle.rule (in, accel)
+    -- debug stuff
+    SEQ
+      velc[0] := accel[x]
+      velc[1] := accel[y]
+      C.printfreal(velc)
+    -- end of debug stuff
+    accelerate (velocity, accel)
+:
+
+PROC occoids (CHAN BYTE out!)
+  --[1]AGENT.INFO in:
+  --VECTOR velocity:
+  VECTOR velocityC:
+  VECTOR velocityOC:
+  INITIAL MOBILE []AGENT.INFO in IS MOBILE [1]AGENT.INFO:
+  INITIAL MOBILE []AGENT.INFO boid.infos IS MOBILE [1]AGENT.INFO:
+  INITIAL MOBILE []AGENT.INFO obstacle.infos IS MOBILE [1]AGENT.INFO:
+
+  SEQ
+    in[0][local.id] := 0
+    in[0][type] := 1
+    in[0][position][x] := 4.0
+    in[0][position][y] := 5.0
+    in[0][velocity][x] := 6.0
+    in[0][velocity][y] := 7.0
+    in[0][radius] := 2.0
+    in[0][colour] := 3
+
+    velocityC[x] := 8.1
+    velocityC[y] := 8.2
+    velocityOC[x] := 8.1
+    velocityOC[y] := 8.2
+
+    occam.occoids(in, velocityOC)
+    C.occoids(in, velocityC)
+    [4]REAL32 velc:
+    SEQ
+      velc[0] := velocityC[x]
+      velc[1] := velocityC[y]
+      velc[2] := velocityOC[x]
+      velc[3] := velocityOC[y]
+      C.printfreal(velc)
+:
+
 PROC hello (CHAN BYTE out!)
   SEQ
     out.string ("opencl occam test*n", 0, out!)
     C.initialisecl()
+    C.initoccoids ()
     out.string ("opencl init over *n", 0, out!)
+
     C.initrot13()
     out.string ("rot13 init over*n", 0, out!)
-
     rot13 ("opencl is awesome", out!)
     out.string ("*c*n", 0, out!)
-
     occrot13 ("opencl is awesome", out!)
     out.string ("*c*n", 0, out!)
 
-    mandelocc(out!)
+--    mandelocc(out!)
+--    out.string ("start mandelbrot*n", 0, out!)
+--    C.initmandelbrot ()
+--    out.string ("mandelbrot init over*n", 0, out!)
+--    mandel (out!)
 
-    out.string ("start mandelbrot*n", 0, out!)
-    C.initmandelbrot ()
-    out.string ("mandelbrot init over*n", 0, out!)
-    mandel (out!)
---    [4] CHAN BYTE chans:
---    INITIAL BOOL running IS TRUE:
---    WHILE running
---      PAR
---        print.streams (10, chans?, out!)
---        rot13 ("opencl is awesome", chans[0]!)
---        rot13 ("opencl is greaaat", chans[1]!)
---        rot13 ("opencl is monkeyy", chans[2]!)
---        rot13 ("opencl is doucheb", chans[3]!)
+    occoids (out!)
+    INT val:
+    SEQ
+      val := #F0000000
+      out.int (val, 0, out!)
     C.destroycl ()
 :
 

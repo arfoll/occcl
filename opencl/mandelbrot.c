@@ -6,59 +6,85 @@
  */
 
 #include "mandelbrot.h"
-#define DEBUG 0
-#define CLMANDEL 1
+
+#define MAX_GPUS 4
 
 static int mandelbrot_init = 0;
+static int mandelbrotvis_init = 0;
+static int mandelbrot_cl_float;
 static cl_context *context;
 static cl_device_id *device;
 static cl_program prog;
+static cl_program progvis[MAX_GPUS];
 static cl_kernel k_mandelbrot;
+static cl_kernel k_mandelbrotvis[MAX_GPUS];
 static cl_command_queue *cq;
+static int numdevices = 1;
+
+// Following values will be overriden in _init
+static int visheight = 240;
+static int viswidth = 320;
+static int framesperworker = 1;
+
+static int iterations = MAX_NUM_ITERATIONS;
+cl_fract jobs[MAX_NUM_ITERATIONS*3];
 
 cl_int table_int[] = { 32, 46, 44, 42, 126, 42, 94, 58, 59, 124, 38, 91, 36, 37, 64, 35 };
 
-void mandelbrot_c (cl_char *data, cl_fract *job, cl_int width)
+void mandelbrot_c (cl_char (*data)[200], cl_fract *job)
 {
-  int i = 0;
-  cl_fract y = job[0]/job[1] - job[2];
+  int j, i;
+
+  for (j = 0; j < IMAGEHEIGHT; j++) {
+    // calculate job[0] value
+    job[0] = (cl_fract) j - (IMAGEHEIGHT/2);
+    cl_fract y = job[0]/job[1] - job[2];
+
 #if DEBUG
-  fprintf (stderr, "native job0 = %f, job1 = %f, job2, %f, job3 %f, y = %f\n", job[0], job[1], job[2], job[3], y);
+    fprintf (stderr, "native job0 = %f, job1 = %f, job2, %f, job3 %f, y = %f\n", job[0], job[1], job[2], job[3], y);
 #endif
-  for (i = 0; i < width; i++) {
-    cl_fract real = ((i - 50) / (job[1] * 2.0)) - job[3];
-    cl_fract imag = y;
-    cl_fract iter_real = 0.0;
-    cl_fract iter_imag = 0.0;
-    int count = 0;
-    while ((((iter_real*iter_real)+(iter_imag*iter_imag)) < 32.0) && (count < 240)) {
-      cl_fract iter_real2 = iter_real;
-      cl_fract iter_imag2 = iter_imag;
-      cl_fract iter_r;
-      cl_fract iter_i;
-      iter_r = (iter_real*iter_real2) - (iter_imag*iter_imag2);
-      iter_i = (iter_imag*iter_real2) + (iter_real*iter_imag2);
-      iter_real = real + iter_r;
-      iter_imag = imag + iter_i;
-      count++;
+    for (i = 0; i < IMAGEWIDTH; i++) {
+      cl_fract real = ((i - IMAGEHEIGHT) / (job[1] * 2.0)) - job[3];
+      cl_fract imag = y;
+      cl_fract iter_real = 0.0;
+      cl_fract iter_imag = 0.0;
+      int count = 0;
+      while ((((iter_real*iter_real)+(iter_imag*iter_imag)) < 32.0) && (count < visheight)) {
+        cl_fract iter_real2 = iter_real;
+        cl_fract iter_imag2 = iter_imag;
+        cl_fract iter_r;
+        cl_fract iter_i;
+        iter_r = (iter_real*iter_real2) - (iter_imag*iter_imag2);
+        iter_i = (iter_imag*iter_real2) + (iter_real*iter_imag2);
+        iter_real = real + iter_r;
+        iter_imag = imag + iter_i;
+        count++;
+      }
+      int val = count % 16;
+      data[j][i*2] = (char) (val % 6);
+      data[j][(i*2)+1] = table_int[val];
     }
-    int val = count % 16;
-    data[i*2] = (char) (val % 6);
-    data[(i*2)+1] = table_int[val];
   }
 }
 
 void _mandelbrot (int *w)
 { 
+  cl_char (*data)[200] = (cl_char*) w[0];
+  // due to the [][] array w[1] is 50 and w[2] is 200
+  // w[3] would be jobs
 #if CLMANDEL
-  cl_fract *job = (cl_fract*) (w[2]);
-  cl_fract job_y[5];
-  memcpy(job_y, job, sizeof(cl_fract) * 4);
-  job_y[4] = job[0]/job[1] - job[2];
-  mandelbrot ((cl_char*) (w[0]), (cl_fract*) (&job_y), (cl_int) (w[4]));
+  mandelbrot (data, (cl_fract*) (w[3]));
 #else
-  mandelbrot_c ((cl_char*) (w[0]), (cl_fract*) (w[2]), (cl_int) (w[4]));
+  mandelbrot_c (data, (cl_fract*) (w[3]));
 #endif
+}
+
+void _mandelbrotvis (int *w)
+{ 
+  cl_int *data = (cl_int*) w[0];
+  // pass the correct part of the jobs array
+  cl_fract *jobsarr = &jobs[w[4]*JOBS_PER_FRAME];
+  mandelbrotvis (data, (cl_fract*) jobsarr);
 }
 
 void _initmandelbrot (int *w)
@@ -66,9 +92,20 @@ void _initmandelbrot (int *w)
   init_mandelbrot();
 }
 
-int mandelbrot (cl_char *data, cl_fract *job, cl_int width) {
-  
+void _initmandelbrotvis (int *w)
+{
+  viswidth = (int) w[0];
+  visheight = (int) w[1];
+  framesperworker = (int) w[2];
+  iterations = (int) w[3];
+  //  printf("%d, %d, %d\n\n\n\n", viswidth, visheight, framesperworker);
+  init_mandelbrotvis();
+}
+
+int mandelbrot (cl_char (*data)[200], cl_fract *job)
+{  
   cl_int error;
+  int i;
 
 #if ERROR_CHECK
   if (prog == NULL) {
@@ -77,33 +114,41 @@ int mandelbrot (cl_char *data, cl_fract *job, cl_int width) {
 #endif
 
 #if DEBUG
-  fprintf (stderr, "opencl job0 = %f, job1 = %f, job2, %f, job3 %f, y = %f\n", 
-           job[0], job[1], job[2], job[3], job[4]);
+  fprintf (stderr, "opencl job0 = %f, job1 = %f, job2, %f, job3 %f\n", 
+           job[0], job[1], job[2], job[3]);
 #endif
 
-#if 0
+#if 0 
   // test initialise data
-  memset (data,'*',200*sizeof(cl_char));
+  memset (data, 2,(IMAGEHEIGHT*IMAGEWIDTH*2)*sizeof(cl_char));
 #endif
 
   // Allocate memory for the kernel to work with
   cl_mem mem1, mem2;
-  mem1 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_char)*(width*2), 0, &error);
-//  mem1 = clCreateBuffer(*context, CL_MEM_USE_HOST_PTR, sizeof(cl_char)*(width*2), data, &error);
-  mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_fract)*5, job, &error);
+  mem1 = clCreateBuffer(*context, CL_MEM_WRITE_ONLY, sizeof(cl_char)*(IMAGEHEIGHT*IMAGEWIDTH*2), 0, &error);
+
+  if (mandelbrot_cl_float) {
+    cl_float jobfloat[4];
+    for (i=0; i<4; i++)
+      jobfloat[i] = (cl_float) job[i];
+
+    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*4, jobfloat, &error);
+  } else {
+    mem2 = clCreateBuffer(*context, CL_MEM_COPY_HOST_PTR, sizeof(cl_fract)*4, job, &error);
+  }
   
   // get a handle and map parameters for the kernel
   error = clSetKernelArg(k_mandelbrot, 0, sizeof(cl_mem), &mem1);
   error = clSetKernelArg(k_mandelbrot, 1, sizeof(cl_mem), &mem2);
 
   // Perform the operation (width is 100 in this example)
-  size_t worksize = width;
-  error = clEnqueueNDRangeKernel(*cq, k_mandelbrot, 1, NULL, &worksize, 0, 0, 0, 0);
+  size_t worksize[3] = {IMAGEHEIGHT, IMAGEWIDTH, 0};
+  error = clEnqueueNDRangeKernel(*cq, k_mandelbrot, 2, NULL, &worksize[0], 0, 0, 0, 0);
   // Read the result back into data
-  error = clEnqueueReadBuffer(*cq, mem1, CL_TRUE, 0, (size_t) (width*2), data, 0, 0, 0);
+  error = clEnqueueReadBuffer(*cq, mem1, CL_TRUE, 0, sizeof(cl_char)*(IMAGEHEIGHT*IMAGEWIDTH*2), data, 0, 0, 0);
 
-  // cleanup
-  error = clFlush(*cq);
+  // cleanup - don't perform a flush as the queue is now shared between all executions. The
+  // blocking clEnqueueReadBuffer should be enough
   clReleaseMemObject(mem1);
   clReleaseMemObject(mem2);
 
@@ -112,15 +157,71 @@ int mandelbrot (cl_char *data, cl_fract *job, cl_int width) {
     exit(10);
   }
 
-#if 0
-  int i = 0;
-  for (i=0; i < 200; i++)
-    if (i%2) {
-      fprintf (stderr, "%c", data[i]);
+#if C_PRINT
+  // this will print a frame coming out of the CL kernel in a dirty but functional manner
+  int j;
+  int colour = -1;
+  for (i=0; i < IMAGEHEIGHT; i++) {
+    for (j=0; j < IMAGEWIDTH*2; j++) {
+      if (colour != data[i][j]) {
+        colour = data[i][j];
+        textcolour(colour);
+      }
+      j++;
+      fprintf (stdout, "%c", data[i][j]);
     }
-  fprintf(stderr, "\n");
+    fprintf(stdout, "\n");
+  }
 #endif
+
+  return error;
+}
+
+int mandelbrotvis (cl_int *data, cl_fract *job)
+{  
+  cl_int error;
+  int i;
+
+#if MULTI_GPUS 
+  // move to new context/cq
+  int currentdevice = nextDevice();
+  cl_command_queue *cqm = get_command_queue();
+  cl_context *cm = get_cl_context();
+#endif
+
+  // Allocate memory for the kernel to work with
+  cl_mem mem1, mem2;
+  mem1 = clCreateBuffer(*cm, CL_MEM_WRITE_ONLY, sizeof(cl_int)*(visheight*viswidth*framesperworker), 0, &error);
+
+  if (mandelbrot_cl_float) {
+    cl_float jobfloat[framesperworker*JOBS_PER_FRAME];
+    for (i=0; i<framesperworker*JOBS_PER_FRAME; i++)
+      jobfloat[i] = (cl_float) job[i];
+
+    mem2 = clCreateBuffer(*cm, CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*framesperworker*JOBS_PER_FRAME, jobfloat, &error);
+  } else {
+    mem2 = clCreateBuffer(*cm, CL_MEM_COPY_HOST_PTR, sizeof(cl_fract)*framesperworker*JOBS_PER_FRAME, job, &error);
+  }
   
+  // get a handle and map parameters for the kernel
+  error = clSetKernelArg(k_mandelbrotvis[currentdevice], 0, sizeof(mem1), &mem1);
+  error = clSetKernelArg(k_mandelbrotvis[currentdevice], 1, sizeof(mem2), &mem2);
+
+  size_t worksize[3] = {visheight, viswidth, framesperworker};
+  error = clEnqueueNDRangeKernel(*cqm, k_mandelbrotvis[currentdevice], 3, NULL, &worksize[0], 0, 0, 0, 0);
+  // Read the result back into data
+  error = clEnqueueReadBuffer(*cqm, mem1, CL_TRUE, 0, sizeof(cl_int)*(visheight*viswidth*framesperworker), data, 0, 0, 0);
+
+  // cleanup - don't perform a flush as the queue is now shared between all executions. The
+  // blocking clEnqueueReadBuffer should be enough
+  clReleaseMemObject(mem1);
+  clReleaseMemObject(mem2);
+
+  if (error) {
+    fprintf (stderr, "ERROR! : %s\n", errorMessageCL(error));
+    exit(10);
+  }
+
   return error;
 }
 
@@ -151,7 +252,8 @@ int init_mandelbrot ()
   context = get_cl_context();
   device = get_cl_device();
 
-  FILE *fp = fopen("mandelbrot.cl", "r");
+  FILE *fp;
+  fp = fopen(CLKERNELDEFS, "r");
   if (!fp) {
     fprintf(stderr, "Failed to load kernel.\n");
     return(1);
@@ -161,8 +263,14 @@ int init_mandelbrot ()
   fclose (fp);
   const char *srcptr[]={src};
 
-  // build CL program
-  error = buildcl (srcptr, &srcsize, &prog, "");
+  // build CL program with a USE_DOUBLE define if we found the correct extension
+  if (getCorrectDevice("cl_khr_fp64") == CL_SUCCESS) {
+    error = buildcl (srcptr, &srcsize, &prog, "-D USE_DOUBLE -cl-fast-relaxed-math -cl-mad-enable", NUM_GPUS);
+  }
+  else {
+    mandelbrot_cl_float = 1;
+    error = buildcl (srcptr, &srcsize, &prog, "-D USE_FLOAT -cl-fast-relaxed-math -cl-mad-enable", NUM_GPUS);
+  }
   // create kernel
   k_mandelbrot = clCreateKernel(prog, "mandelbrot", &error);
   // get the shared CQ
@@ -170,6 +278,100 @@ int init_mandelbrot ()
 
   if (!error)
     mandelbrot_init = 1;
+
+  return error;
+}
+
+/**
+ * Inialises the jobs array
+ */
+void initialiseJobs()
+{
+  int i, index;
+
+  cl_fract zoom = 16.0;
+  cl_fract xdrift = 0.0;
+  cl_fract ydrift = 0.0;
+  cl_fract diffx;
+  cl_fract diffy;
+  cl_fract xtarget = 1.16000014859;
+  cl_fract ytarget = -0.27140215302;
+
+  for (i = 0; i < iterations; i++) {
+    index = i*JOBS_PER_FRAME;
+    jobs[index] = zoom;
+    jobs[index+1] = ydrift;
+    jobs[index+2] = xdrift;
+
+//    fprintf (stderr, "%f, %f, %f\n", jobs[index], jobs[index+1], jobs[index+2]);
+
+    zoom = zoom + (zoom / 32.0);
+    diffx = xtarget - xdrift;
+    diffy = ytarget - ydrift;
+    xdrift = xdrift + (diffx / 16.0);
+    ydrift = ydrift + (diffy / 16.0);
+  }
+}
+
+int init_mandelbrotvis ()
+{
+  int i;
+  cl_int error;
+
+  if (mandelbrotvis_init)
+    return 1;
+
+  context = get_cl_context();
+  device = get_cl_device();
+
+  FILE *fp;
+  fp = fopen(CLVISKERNELDEFS, "r");
+  if (!fp) {
+    fprintf(stderr, "Failed to load kernel.\n");
+    return(1);
+  }
+  char *src = (char*) malloc (MAX_SOURCE_SIZE);
+  size_t srcsize = fread (src, 1, MAX_SOURCE_SIZE, fp);
+  fclose (fp);
+  const char *srcptr[]={src};
+
+  // get the number of GPUS/DEVICES available
+  numdevices = getNumDevices();
+
+  // build CL program with a USE_DOUBLE define if we found the correct extension
+  char *precision = "             ";
+#if 1
+  if (getCorrectDevice("cl_khr_fp64") == CL_SUCCESS) {
+    precision = "-D USE_DOUBLE";
+  }
+  else {
+#endif
+    mandelbrot_cl_float = 1;
+    precision = "-D USE_FLOAT";
+#if 1 
+  }
+#endif
+
+  char options[MAX_BUILD_LINE_LENGTH];
+  // following options seem to speed things up a little
+  char *compile_opt = "-cl-fast-relaxed-math -cl-mad-enable";
+  snprintf(options, MAX_BUILD_LINE_LENGTH,
+           "%s -D IMAGEWIDTHVIS=%d -D IMAGEHEIGHTVIS=%d %s", precision, viswidth, visheight, compile_opt);
+  error = buildcl (srcptr, &srcsize, &progvis[0], options, numdevices);
+//  printf("%s\n\n\n", options);
+
+  // create kernel
+  for (i=0; i<numdevices; i++) {
+    k_mandelbrotvis[i] = clCreateKernel(progvis[i], "mandelbrot_vis", &error);
+  }
+  // get the shared CQ
+  cq = get_command_queue();
+
+  // initialise the jobs array
+  initialiseJobs();
+
+  if (!error)
+    mandelbrotvis_init = 1;
 
   return error;
 }

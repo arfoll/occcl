@@ -5,9 +5,15 @@
  * Copyright 2011 - University of Kent
  */
 
+#ifndef PRINTF_H
+#define PRINTF_H
+
 #include "initial.h"
 #include <stdio.h>
 
 void _printfjob (int *w);
-void printf_job (float *job, int length);
+void _printfreal (int *w);
+void _printfreal64 (int *w);
+void _printfint (int *w);
 
+#endif

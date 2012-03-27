@@ -1,0 +1,204 @@
+--
+--      mandelbrot.occ -- text example of a mandelbrot set in occam
+--      Copyright (C) 1997 Jim Moores
+--      COMPLEX64 code Copyright (C) 1997 D.C. Wood <D.C.Wood@ukc.ac.uk>
+--      (distributed version, client)
+--      Modifications (C) 2001, 2007, 2012 Fred Barnes
+--      Modifications for OpenCL (C) 2011, 2012 Brendan le Foll
+--
+--      This program is free software; you can redistribute it and/or modify
+--      it under the terms of the GNU General Public License as published by
+--      the Free Software Foundation; either version 2 of the License, or
+--      (at your option) any later version.
+--
+--      This program is distributed in the hope that it will be useful,
+--      but WITHOUT ANY WARRANTY; without even the implied warranty of
+--      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+--      GNU General Public License for more details.
+--
+--      You should have received a copy of the GNU General Public License
+--      along with this program; if not, write to the Free Software
+--      Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+--
+
+
+#INCLUDE "sdlraster.module"
+#INCLUDE "rastergraphics.module"
+#INCLUDE "rasterio.module"
+#INCLUDE "course.module"
+#INCLUDE "useful.module"
+
+--{{{
+-- if running in opencl mode it is workth remembering that cuda 1.x cards
+-- max worksize is 512x512x32 and cuda 2.x cards can do 1024x1024x64
+--}}}
+-- max multiplier on cuda 1.x cards is 1, but a size of 512x can be used
+VAL INT SIZE.MULTI IS 1:
+VAL INT IMAGE.WIDTH IS 320*SIZE.MULTI:
+VAL INT IMAGE.HEIGHT IS 240*SIZE.MULTI:
+-- Reduce this value on smaller GPUs
+VAL INT FRAMES.PER.WORKER IS 1:
+-- Value should reflect how many parralel opencl kernels you want to run
+VAL INT N.WORKERS IS 2:
+-- N.ITERS should be < 850 to avoid picture loss
+VAL INT N.ITERS IS 1200:
+-- MAX.FRAMES is actually FRAMES.PER.WORKER * MAX.FRAMES
+VAL INT MAX.FRAMES IS 10:
+VAL INT FRAME.SPEED IS 0:
+
+--{{{ external opencl functions
+#PRAGMA EXTERNAL "PROC C.initmandelbrotvis (VAL INT width, height, frames, iterations) = 0"
+#PRAGMA EXTERNAL "PROC C.initialisecl () = 0"
+#PRAGMA EXTERNAL "PROC C.mandelbrotvis ([][][]INT data, VAL INT jobid) = 0"
+#PRAGMA EXTERNAL "PROC C.destroycl () = 0"
+--}}}
+--{{{ external debug functions
+#PRAGMA EXTERNAL "PROC C.printfint (VAL INT int) = 0"
+--}}}
+
+PROTOCOL P.JOB.IN IS INT:
+PROTOCOL P.JOB.OUT IS INT; INT; [FRAMES.PER.WORKER][IMAGE.HEIGHT][IMAGE.WIDTH]INT:
+
+CHAN TYPE CT.WORK.IN
+  MOBILE RECORD
+    CHAN INT notify?:
+    CHAN P.JOB.IN in!:
+:
+
+CHAN TYPE CT.WORK.OUT
+  MOBILE RECORD
+    CHAN P.JOB.OUT out?:
+:
+
+PROC worker (SHARED CT.WORK.IN! link.in, SHARED CT.WORK.OUT! link.out)
+  BOOL running:
+  [FRAMES.PER.WORKER][IMAGE.HEIGHT][IMAGE.WIDTH]INT output:
+  SEQ
+    running := TRUE
+    WHILE running
+      INT jobid, frame:
+      SEQ
+        CLAIM link.in
+          link.in[in] ? jobid
+           
+        IF
+          (jobid = (-1))
+            SEQ
+              running := FALSE
+          TRUE
+            SEQ
+              C.mandelbrotvis(output, jobid)
+              CLAIM link.out
+                SEQ
+                  link.out[out] ! (jobid); 0; output
+:
+
+PROC farmer (CT.WORK.IN? link.in, CHAN INT tick!, tock?, kill!)
+  SEQ
+    SEQ n = 0 FOR N.ITERS/FRAMES.PER.WORKER
+      SEQ
+        --{{{  generate job
+        SEQ
+          tick ! n
+          INT any:
+          tock ? any 
+
+          -- give out job
+          SEQ
+            link.in[in] ! n*FRAMES.PER.WORKER
+        --}}}
+
+    --{{{  gracefully shut-down workers
+    SEQ n = 0 FOR N.WORKERS
+      link.in[in] ! -1
+    --}}}
+
+    kill ! 0
+:
+
+PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE scr!)
+  [MAX.FRAMES][FRAMES.PER.WORKER][IMAGE.HEIGHT][IMAGE.WIDTH]INT framebuffer:
+  [MAX.FRAMES]INT fcount:
+  TIMER tim:
+  INT t, start, stop:
+  VAL INT frame.speed IS FRAME.SPEED:
+  SEQ
+    SEQ i = 0 FOR SIZE fcount
+      fcount[i] := IMAGE.HEIGHT
+
+    tim ? t
+    start := t
+    t := t PLUS frame.speed
+
+    INITIAL INT lframe IS 0:
+    INITIAL INT hframe IS 0:
+    INITIAL BOOL running IS TRUE:
+    WHILE running
+      ALT
+        INT id, frame, calc:
+        link.out[out] ? frame; id; framebuffer[frame \ MAX.FRAMES]
+          SEQ
+            calc := frame \ MAX.FRAMES
+            out.int(frame, 0, scr!)
+            out.string ("*n", 0, scr!)
+            fcount[calc] := fcount[calc] - IMAGE.HEIGHT
+            IF
+              fcount[lframe \ MAX.FRAMES] = 0
+                -- got all results for the lowest frame
+                INITIAL INT lbuf IS (lframe \ MAX.FRAMES):
+                SEQ
+                  fcount[lbuf] := IMAGE.HEIGHT
+                  --{{{
+--                    SEQ f = 0 FOR FRAMES.PER.WORKER
+--                      SEQ
+--                        tim ? AFTER t
+--                        scr.in ? r
+--                        SEQ j = 0 FOR IMAGE.HEIGHT
+--                          r[j] := framebuffer[lbuf][f][j]
+--                        scr.out ! r
+--                        t := t PLUS frame.speed
+                  --}}}
+                  lframe := lframe + FRAMES.PER.WORKER
+              TRUE
+                SKIP
+        (hframe <= (lframe + 4)) & tick ? hframe
+          tock ! hframe
+        INT any:
+        kill ? any
+          SEQ
+            running := FALSE
+    tim ? stop
+    out.string ("time = ", 0, scr!)
+    out.int ((stop MINUS start) / 1000, 0, scr!)
+    out.string (" ms*n", 0, scr!)
+    -- clean shutdown
+--    raster.shutdown (scr.in?, scr.out!)
+:
+
+
+PROC mandelbrot (CHAN BYTE kyb?, scr!, err!)
+  CT.WORK.IN? mwsvr.in:
+  CT.WORK.OUT? mwsvr.out:
+  SHARED CT.WORK.IN! mwcli.in:
+  SHARED CT.WORK.OUT! mwcli.out:
+  SEQ
+    mwsvr.in, mwcli.in := MOBILE CT.WORK.IN
+    mwsvr.out, mwcli.out := MOBILE CT.WORK.OUT
+
+    --{{{ initialise openCL and mandelbrot CL kernel
+    C.initialisecl()
+    C.initmandelbrotvis (IMAGE.WIDTH, IMAGE.HEIGHT, FRAMES.PER.WORKER, N.ITERS)
+    --}}}
+    
+    CHAN INT tick, tock, kill:
+    PAR
+      farmer (mwsvr.in, tick!, tock?, kill!)
+      harvester (mwsvr.out, tick?, tock!, kill?, scr!)
+      PAR i = 0 FOR N.WORKERS
+        worker (mwcli.in, mwcli.out)
+  --    raster.display.simple ("Mandelbrot", IMAGE.WIDTH, IMAGE.HEIGHT, 5, d?, c!)
+
+    --{{{ destroy cl stuff
+    C.destroycl()
+    --}}}
+:

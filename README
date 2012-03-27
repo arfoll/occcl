@@ -20,6 +20,9 @@ CL_DEVICE_TYPE_GPU:
     OpenCL 1.1 SDK = AMD APP SDK 2.5
     Extensions = cl_amd_fp64 cl_khr_gl_sharing cl_amd_device_attribute_query
     Num Compute units = 10
+  Nvidia GTX560 (GF114)
+    Extensions = OpenCL device : GeForce GTX 560
+cl_khr_byte_addressable_store cl_khr_icd cl_khr_gl_sharing cl_nv_compiler_options cl_nv_device_attribute_query cl_nv_pragma_unroll  cl_khr_global_int32_base_atomics cl_khr_global_int32_extended_atomics cl_khr_local_int32_base_atomics cl_khr_local_int32_extended_atomics cl_khr_fp64
   Nvidia 8600GT
   Nvidia GT430
   Nvidia ION
@@ -30,21 +33,51 @@ CL_DEVICE_TYPE_CPU:
   Intel Core i7-2600
 
 RESULTS
-mandelbrot (fp64) benchmark:
+mandelbrot (fp64, 32workers, 128frames) benchmark:
 Occam (Intel Q6600 @ 3.0ghz):
-  real	0m29.562s
-  user	0m33.195s
-  sys	0m0.693s
-OpenCL (Intel Q6600 @ 3.0ghz + nvidia GT430):
-  real	0m27.468s
-  user	0m7.143s
-  sys	0m13.032s
+  real    0m17.877s
+  user    0m35.928s
+  sys     0m0.773s
+OpenCL (Intel Q6600 @ 3.0ghz + nvidia GTX560):
+  real    0m3.467s
+  user    0m0.780s
+  sys     0m1.013s
 C (Intel Q6600 @ 3.0ghz):
-  real	0m25.348s
-  user	0m6.306s
-  sys	0m0.650s
-Fred-lab-PC-Q9400 @ 2.66GHz
-  time = 22505 ms  (800 iters, 128 workers)
+  real    0m4.323s
+  user    0m3.230s
+  sys     0m0.670s
+
+mandebrot no disp (gcc 4.6.2 with -O2
+  (Intel Q6600 @ 3.0ghz + nvidia GTX560)
+  OpenCL implementation (frame - with opts -D USE_DOUBLE -cl-fast-relaxed-math -cl-mad-enable)
+    438ms
+  C implementation (frame)
+    2663ms
+  Occam implementation (line)
+    13413ms
+
+Occoids-single:
+  (Intel Q6600 @ 3.0Ghz + nvidia GTX560)
+  Occam implementation
+Cycle       50; cycle time =    14719 us;     2180 processes
+Cycle      100; cycle time =    14730 us;     2180 processes
+Cycle      150; cycle time =    14885 us;     2180 processes
+Cycle      200; cycle time =    15706 us;     2180 processes
+Cycle      250; cycle time =    15967 us;     2180 processes
+Cycle      300; cycle time =    17533 us;     2180 processes
+Cycle      350; cycle time =    16094 us;     2180 processes
+Cycle      400; cycle time =    16547 us;     2180 processes
+Cycle      450; cycle time =    16460 us;     2180 processes
+Cycle      500; cycle time =    16140 us;     2180 processes
+Cycle      550; cycle time =    16998 us;     2180 processes
+Cycle      600; cycle time =    17053 us;     2180 processes
+Cycle      650; cycle time =    16883 us;     2180 processes
+Cycle      700; cycle time =    16191 us;     2180 processes
+Cycle      750; cycle time =    16688 us;     2180 processes
+Cycle      800; cycle time =    16797 us;     2180 processes
+Cycle      850; cycle time =    17053 us;     2180 processes
+Cycle      900; cycle time =    17501 us;     2180 processes
+Cycle      950; cycle time =    18061 us;     2180 processes
 
 
 CONCLUSION

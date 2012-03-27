@@ -4,7 +4,7 @@
 --	COMPLEX64 code Copyright (C) 1997 D.C. Wood <D.C.Wood@ukc.ac.uk>
 --      (distributed version, client)
 --	Modifications (C) 2001, 2007 Fred Barnes
---  Modifications for OpenCL (C) 2011, 2012 Brendan le Foll
+--      Modifications for opencl (C) 2011 Brendan le Foll
 --
 --	This program is free software; you can redistribute it and/or modify
 --	it under the terms of the GNU General Public License as published by
@@ -34,11 +34,11 @@
 VAL INT IMAGE.WIDTH IS 100:
 VAL INT IMAGE.HEIGHT IS 50:
 
-VAL INT N.WORKERS IS 32:
+VAL INT N.WORKERS IS 4:
 VAL INT N.ITERS IS 850:
-VAL INT MAX.FRAMES IS 8:
+VAL INT MAX.FRAMES IS 256:
 
-VAL INT FRAME.SPEED IS 40000:
+VAL INT FRAME.SPEED IS 0:
 
 VAL INT LINES.PER.WORKER IS (IMAGE.HEIGHT / N.WORKERS):
 
@@ -95,7 +95,7 @@ PROC farmer (CT.WORK.IN? link.in, CHAN INT tick!, tock?, kill!)
           INT any:
           tock ? any
 
-          -- first value is garbage because it changes according to height
+          -- first value is 0 because it changes according to height
           -- since we give the whole frame we work it out in C
           wpacket[0] := (0.5)
           wpacket[1] := zoom
@@ -142,10 +142,18 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
       ALT
         INT id, frame, calc:
         link.out[out] ? frame; id; framebuffer[frame \ MAX.FRAMES]
+          INITIAL BOOL pr IS FALSE:
           SEQ
             -- count should be decremented at every line we get but we get the whole frame
             -- so we decrement by IMAGE.HEIGHT instead
             calc := frame \ MAX.FRAMES
+            IF
+              frame = 51
+                SEQ
+                  pr := TRUE
+              TRUE
+                SKIP
+            --C.printfint(frame)
             fcount[calc] := fcount[calc] - IMAGE.HEIGHT
             IF
               fcount[lframe \ MAX.FRAMES] = 0 -- this is the lowest frame in the buffer 
@@ -156,7 +164,7 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
                   fcount[lbuf] := IMAGE.HEIGHT
                   --C.printfint (lbuf)
                   --{{{  dump framebuffer[lbuf]
-                  #IF TRUE
+                  #IF FALSE 
                   cursor.x.y (1, 1, scr!)
 
                   INITIAL BYTE cpix IS #FF:
