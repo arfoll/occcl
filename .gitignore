@@ -12,3 +12,6 @@ occam/mandelbrot
 occam/occoids-single
 occam/mandelbrot-bench
 occam/mandelbrot-occam
+occam/mandelbrot-visual
+occam/mandelbrot-visual-bench
+occam/mandelbrot-visual-orig

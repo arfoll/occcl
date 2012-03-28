@@ -24,7 +24,6 @@ int mandelbrotTest(int verbose, int iterations) {
   fprintf (stdout, "========= MANDELBROT =========\n");
   error = init_mandelbrot();
   fprintf (stdout, "init errors = %s\n", errorMessageCL(error));
-  print_mandelbrot_kernel_info();
   cl_fract job[4] = {-25.000000, 534.086426, -0.271229, 1.159260};
   cl_char *dataptr = (cl_char*)malloc(sizeof(cl_char)*100*2*50);
   //memset(dataptr, 2, (sizeof(cl_char)*100*2*50));

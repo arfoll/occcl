@@ -49,6 +49,5 @@ void mandelbrot_c (cl_char (*data)[IMAGEWIDTH*2], cl_fract *job);
 int mandelbrotvis (cl_int *data, cl_fract *job);
 int init_mandelbrot ();
 int init_mandelbrotvis ();
-cl_int print_mandelbrot_kernel_info ();
 
 #endif
