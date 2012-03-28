@@ -139,8 +139,8 @@ PROC harvester (CT.WORK.OUT? link.out, CHAN INT tick?, tock!, kill?, CHAN BYTE s
         link.out[out] ? frame; id; framebuffer[frame \ MAX.FRAMES]
           SEQ
             calc := frame \ MAX.FRAMES
-            out.int(frame, 0, scr!)
-            out.string ("*n", 0, scr!)
+            --out.int(frame, 0, scr!)
+            --out.string ("*n", 0, scr!)
             fcount[calc] := fcount[calc] - IMAGE.HEIGHT
             IF
               fcount[lframe \ MAX.FRAMES] = 0
