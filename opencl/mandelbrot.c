@@ -250,7 +250,7 @@ int init_mandelbrot ()
   // get the number of GPUS/DEVICES available
   numdevices = getNumDevices();
 
-#if FORCE_FLOAT
+#if CAN_USE_DOUBLE
   // build CL program with a USE_DOUBLE define if we found the correct extension
   if (getCorrectDevice("cl_khr_fp64") == CL_SUCCESS) {
     error = buildcl (srcptr, &srcsize, &prog[0], "-D USE_DOUBLE -cl-fast-relaxed-math -cl-mad-enable", numdevices);
@@ -259,7 +259,7 @@ int init_mandelbrot ()
 #endif
     mandelbrot_cl_float = 1;
     error = buildcl (srcptr, &srcsize, &prog[0], "-D USE_FLOAT -cl-fast-relaxed-math -cl-mad-enable", numdevices);
-#if FORCE_FLOAT
+#if CAN_USE_DOUBLE
   }
 #endif
   // create kernel
@@ -333,7 +333,7 @@ int init_mandelbrotvis ()
 
   // build CL program with a USE_DOUBLE define if we found the correct extension
   char *precision = "             ";
-#if FORCE_FLOAT
+#if CAN_USE_DOUBLE
   if (getCorrectDevice("cl_khr_fp64") == CL_SUCCESS) {
     precision = "-D USE_DOUBLE";
   }
@@ -341,7 +341,7 @@ int init_mandelbrotvis ()
 #endif
     mandelbrot_cl_float = 1;
     precision = "-D USE_FLOAT";
-#if FORCE_FLOAT
+#if CAN_USE_DOUBLE
   }
 #endif
 

@@ -21,7 +21,7 @@
 #define CLVISKERNELDEFS "mandelbrot_vis.cl"
 #define MULTI_GPUS 1
 #define JOBS_PER_FRAME 3
-#define FORCE_FLOAT 0
+#define CAN_USE_DOUBLE 1
 // after 1200 we loose too much precision and our target is wrong
 #define MAX_NUM_ITERATIONS 1200
 
