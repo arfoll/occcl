@@ -19,7 +19,6 @@
 #define MAX_SOURCE_SIZE (0x100000)
 #define CLKERNELDEFS "mandelbrot.cl"
 #define CLVISKERNELDEFS "mandelbrot_vis.cl"
-#define NUM_GPUS 1
 #define MULTI_GPUS 1
 #define JOBS_PER_FRAME 3
 // after 1200 we loose too much precision and our target is wrong

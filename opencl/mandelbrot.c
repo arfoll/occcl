@@ -118,6 +118,8 @@ int mandelbrot (cl_char (*data)[200], cl_fract *job)
   int currentdevice = nextDevice();
   cl_command_queue *cq = get_command_queue();
   cl_context *context = get_cl_context();
+#else
+  int currentdevice = 0;
 #endif
 
   // Allocate memory for the kernel to work with
@@ -180,11 +182,12 @@ int mandelbrotvis (cl_int *data, cl_fract *job)
   int i;
 
 #if MULTI_GPUS 
-  // move to new context/cq
   int currentdevice = nextDevice();
+#else
+  int currentdevice = 0;
+#endif
   cl_command_queue *cqm = get_command_queue();
   cl_context *cm = get_cl_context();
-#endif
 
   // Allocate memory for the kernel to work with
   cl_mem mem1, mem2;
