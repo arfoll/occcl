@@ -71,7 +71,7 @@ cl_int initialisecl(int verbose)
     }
 
     // we don't have any GPU devices
-    if (numdevices < 0) {
+    if (numdevices < 1) {
       fprintf(stderr, "Grabbing a CL_DEVICE_TYPE_ALL\n");
       error = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, NUM_DEVICES, device, &numdevices);
       if (error != CL_SUCCESS) {
